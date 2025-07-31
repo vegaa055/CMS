@@ -1,37 +1,48 @@
+      :root {
+        --primary-color: #d62828;
+        --secondary-color: #f8f9fa;
+        --background-color: #121212;
+        --secondary-background-color: #212529;
+        --border-color: #343a40;
+        --text-color: #f8f9fa;
+        --muted-text-color: #adb5bd;
+        --link-color: #d62828;
+        --link-hover-color: #ff6f61;  
+      }
       body {
-        background-color: #121212;
-        color: #f8f9fa;
+        background-color: var(--background-color);
+        color: var(--text-color);
         font-family: 'Arial', sans-serif;
       }
 
       .jumbotron {
         padding: 4rem 2rem;
-        background-color: #1f1f1f;
-        border-bottom: 4px solid #d62828;
+        background-color: var(--background-color);
+        border-bottom: 4px solid var(--primary-color);
         text-align: center;
       }
 
       .navbar {
-        background-color: #212529;
+        background-color: var(--secondary-background-color);
       }
 
       .navbar-brand,
       .nav-link {
-        color: #f8f9fa !important;
+        color: var(--text-color) !important;
       }
 
       .navbar-brand:hover,
       .nav-link:hover {
-        color: #d62828 !important;
+        color: var(--primary-color) !important;
       }
 
       .btn-outline-success {
-        border-color: #d62828;
-        color: #d62828;
+        border-color: var(--primary-color);
+        color: var(--primary-color);
       }
 
       .btn-outline-success:hover {
-        background-color: #d62828;
+        background-color: var(--primary-color);
         color: #ffffff;
       }
 
@@ -39,8 +50,8 @@
         margin-top: 2rem;
         padding: 1rem;
         text-align: center;
-        border-top: 1px solid #343a40;
-        color: #adb5bd;
+        border-top: 1px solid var(--border-color);
+        color: var(--muted-text-color);
       }
 
       .main-content {
@@ -51,14 +62,14 @@
 
       .featured-article {
         flex: 2;
-        background-color: #1e1e1e;
+        background-color: var(--secondary-background-color);
         padding: 1.5rem;
         border-radius: 8px;
       }
 
       .article-list {
         flex: 1;
-        background-color: #1a1a1a;
+        background-color: var(--secondary-background-color);
         padding: 1.5rem;
         border-radius: 8px;
       }
@@ -73,11 +84,11 @@
       }
 
       .article-list a {
-        color: #f8f9fa;
+        color: var(--text-color);
         text-decoration: none;
       }
 
       .article-list a:hover {
-        color: #d62828;
+        color: var(--link-hover-color);
         text-decoration: underline;
       }
