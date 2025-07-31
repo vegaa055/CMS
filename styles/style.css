@@ -1,0 +1,83 @@
+      body {
+        background-color: #121212;
+        color: #f8f9fa;
+        font-family: 'Arial', sans-serif;
+      }
+
+      .jumbotron {
+        padding: 4rem 2rem;
+        background-color: #1f1f1f;
+        border-bottom: 4px solid #d62828;
+        text-align: center;
+      }
+
+      .navbar {
+        background-color: #212529;
+      }
+
+      .navbar-brand,
+      .nav-link {
+        color: #f8f9fa !important;
+      }
+
+      .navbar-brand:hover,
+      .nav-link:hover {
+        color: #d62828 !important;
+      }
+
+      .btn-outline-success {
+        border-color: #d62828;
+        color: #d62828;
+      }
+
+      .btn-outline-success:hover {
+        background-color: #d62828;
+        color: #ffffff;
+      }
+
+      footer {
+        margin-top: 2rem;
+        padding: 1rem;
+        text-align: center;
+        border-top: 1px solid #343a40;
+        color: #adb5bd;
+      }
+
+      .main-content {
+        display: flex;
+        gap: 2rem;
+        margin: 2rem;
+      }
+
+      .featured-article {
+        flex: 2;
+        background-color: #1e1e1e;
+        padding: 1.5rem;
+        border-radius: 8px;
+      }
+
+      .article-list {
+        flex: 1;
+        background-color: #1a1a1a;
+        padding: 1.5rem;
+        border-radius: 8px;
+      }
+
+      .article-list ul {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      .article-list li {
+        margin-bottom: 1rem;
+      }
+
+      .article-list a {
+        color: #f8f9fa;
+        text-decoration: none;
+      }
+
+      .article-list a:hover {
+        color: #d62828;
+        text-decoration: underline;
+      }
