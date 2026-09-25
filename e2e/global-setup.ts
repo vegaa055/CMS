@@ -12,7 +12,7 @@ export default async function globalSetup() {
   const db = sql();
   await db`
     insert into "user" (id, name, email, email_verified, role, username)
-    values (${E2E.userId}, 'E2E Admin', ${E2E.email}, true, 'admin', 'e2e-admin')`;
+    values (${E2E.userId}, ${E2E.name}, ${E2E.email}, true, 'admin', 'e2e-admin')`;
   await db`
     insert into account (id, account_id, provider_id, user_id, password)
     values (${`${E2E.userId}-credential`}, ${E2E.userId}, 'credential', ${E2E.userId}, ${await hashPassword(password)})`;

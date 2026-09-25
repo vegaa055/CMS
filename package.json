@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "test:int": "vitest run --config vitest.int.config.mts",
     "test:e2e": "playwright test --project=setup --project=public --project=admin",
-    "screenshots": "playwright test --project=screenshots"
+    "screenshots": "playwright test --project=screenshots",
+    "db:seed:demo": "tsx src/db/seed-demo.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -66,6 +67,7 @@
     "happy-dom": "^20.14.5",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",

@@ -29,7 +29,13 @@ test("capture screenshots", async ({ page }) => {
   await page.screenshot({ path: out("dashboard") });
 
   await page.goto("/admin/posts");
-  await page.locator("table tbody tr a").first().click();
+  // A published post shows the editor with real content.
+  await page
+    .locator("table tbody tr", { hasText: "published" })
+    .first()
+    .locator("a")
+    .first()
+    .click();
   await expect(page.getByLabel("Post content")).toBeVisible();
   await page.screenshot({ path: out("editor") });
 

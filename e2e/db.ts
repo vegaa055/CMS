@@ -9,6 +9,8 @@ config({ path: ".env.local", quiet: true });
 
 export const E2E = {
   userId: "e2e-admin",
+  // A realistic display name so README screenshots read naturally.
+  name: "Jordan Ellis",
   email: "e2e-admin@folio.local",
   credentialsFile: "e2e/.auth/credentials.json",
   storageState: "e2e/.auth/admin.json",

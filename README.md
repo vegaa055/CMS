@@ -8,6 +8,23 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
 > **Folio** is a placeholder name. Admins can rename the site in **Settings**; the defaults live in
 > [`src/config/site.ts`](src/config/site.ts).
 
+![Home page](docs/screenshots/home.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/editor.png" alt="Post editor" /></td>
+    <td><img src="docs/screenshots/dashboard.png" alt="Admin dashboard" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/post.png" alt="Post page" /></td>
+    <td><img src="docs/screenshots/media.png" alt="Media library" /></td>
+  </tr>
+</table>
+
+<sub>Screenshots use the demo content from <code>npm run db:seed:demo</code> (light mode:
+<a href="docs/screenshots/home-light.png">home</a>). Regenerate with
+<code>npm run screenshots</code>.</sub>
+
 ## Features
 
 **Writing**
@@ -101,7 +118,7 @@ flowchart LR
 npm install
 cp -n .env.example .env.local   # then fill in DATABASE_URL and BETTER_AUTH_SECRET
 npm run db:migrate
-npm run db:seed                 # optional demo content
+npm run db:seed                 # optional starter content (db:seed:demo adds more)
 npm run dev
 ```
 
@@ -121,7 +138,8 @@ registration is closed and people join by invite. Media uses local disk storage 
 | `npm run test:e2e`                   | Playwright end-to-end tests (reuses a running dev server) |
 | `npm run screenshots`                | Regenerate README screenshots                             |
 | `npm run db:generate` / `db:migrate` | Create / apply SQL migrations                             |
-| `npm run db:seed` / `db:studio`      | Seed demo content / open Drizzle Studio                   |
+| `npm run db:seed` / `db:studio`      | Seed starter content / open Drizzle Studio                |
+| `npm run db:seed:demo`               | Demo authors, posts, and generated cover art              |
 
 ## Testing
 

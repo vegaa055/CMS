@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { E2E } from "../db";
+
 test("invite a user, who signs up and is then removed", async ({
   page,
   browser,
@@ -50,6 +52,6 @@ test("admins can't change their own role", async ({ page }) => {
   await page.goto("/admin/users");
   // Your own row shows a static badge instead of a role picker.
   await expect(
-    page.getByRole("combobox", { name: "Role for E2E Admin" }),
+    page.getByRole("combobox", { name: `Role for ${E2E.name}` }),
   ).toHaveCount(0);
 });
