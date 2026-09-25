@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { pgError, UNIQUE_VIOLATION } from "@/db/errors";
-import { posts, postTags, tags } from "@/db/schema";
+import { media, posts, postTags, tags } from "@/db/schema";
 import {
   fail,
   ok,
@@ -145,6 +145,18 @@ export async function savePost(raw: unknown): Promise<ActionResult<SavedPost>> {
     return fail("The post content couldn't be read. Try reloading the editor.");
   }
 
+  if (input.coverImageId) {
+    const [cover] = await db
+      .select({ id: media.id })
+      .from(media)
+      .where(eq(media.id, input.coverImageId));
+    if (!cover) {
+      return fail("That cover image no longer exists.", {
+        coverImage: "Choose another image",
+      });
+    }
+  }
+
   const tagResult = await resolveTags(input.tags, can(user.role, "tag:manage"));
   if ("error" in tagResult)
     return fail(tagResult.error!, { tags: tagResult.error! });
@@ -162,6 +174,7 @@ export async function savePost(raw: unknown): Promise<ActionResult<SavedPost>> {
     contentText: richTextToPlainText(content),
     status: publishing.status,
     publishedAt: publishing.publishedAt,
+    coverImageId: input.coverImageId ?? null,
     seoTitle: input.seoTitle ?? null,
     seoDescription: input.seoDescription ?? null,
   };

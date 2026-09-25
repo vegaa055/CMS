@@ -28,6 +28,7 @@ export const savePostSchema = z.object({
   // Structure is validated against the editor schema by `sanitizeDoc`.
   content: z.unknown(),
   tags: z.array(z.string().trim().min(1).max(50)).max(20, "Up to 20 tags"),
+  coverImageId: z.uuid().nullable().optional(),
   seoTitle: optionalText(70),
   seoDescription: optionalText(160),
   status: z.enum(POST_STATUSES),

@@ -48,7 +48,7 @@ Open http://localhost:3000.
 - [x] **Phase 2** — Auth (Better Auth) and roles
 - [x] **Phase 3** — Admin dashboard shell
 - [x] **Phase 4** — Posts: editor, drafts, publishing, tags
-- [ ] **Phase 5** — Media library on R2
+- [x] **Phase 5** — Media library on R2
 - [ ] **Phase 6** — Public site, search, SEO, RSS
 - [ ] **Phase 7** — User management and site settings
 - [ ] **Phase 8** — Tests, CI, Vercel deploy
@@ -74,6 +74,50 @@ Better Auth (email/password, optional GitHub OAuth) with three roles: **admin**,
 - Statuses: `draft` → `scheduled` / `published` → `archived`. A scheduled post goes live when its
   publish time passes, without a cron job (see `livePostWhere` / `effectiveStatus`).
 - Authors write drafts; editors and admins publish. Drafts can be previewed at `/preview/posts/<id>`.
+
+## Media storage
+
+Uploads go **directly from the browser to storage** using short-lived signed URLs; the server
+then verifies the stored object (exists, size, type) before recording it. Two drivers share one
+interface (`src/lib/storage`):
+
+| `STORAGE_DRIVER` | Where files live                     | Use for                 |
+| ---------------- | ------------------------------------ | ----------------------- |
+| `local`          | `./.uploads`, served at `/uploads/…` | Local development       |
+| `r2`             | Cloudflare R2 bucket (public URL)    | Previews and production |
+
+Accepted: JPEG, PNG, WebP, GIF, AVIF up to 10 MB (SVG is intentionally excluded).
+
+### Setting up Cloudflare R2
+
+1. **Create a bucket** — Cloudflare dashboard → R2 → _Create bucket_ (e.g. `folio-media`).
+2. **Public access** — bucket → _Settings_ → _Public access_: enable the `r2.dev` subdomain
+   (fine for testing) or connect a custom domain (recommended for production). Copy that URL.
+3. **CORS** — bucket → _Settings_ → _CORS policy_ (add your production origin later):
+   ```json
+   [
+     {
+       "AllowedOrigins": ["http://localhost:3000"],
+       "AllowedMethods": ["PUT", "GET", "HEAD"],
+       "AllowedHeaders": ["content-type"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+4. **API token** — R2 → _Manage API tokens_ → _Create API token_ with **Object Read & Write**,
+   scoped to the bucket. Copy the Access Key ID and Secret Access Key. Your Account ID is on the
+   R2 overview page.
+5. **Configure** `.env.local`, then restart the dev server:
+   ```bash
+   STORAGE_DRIVER=r2
+   R2_ACCOUNT_ID=...
+   R2_ACCESS_KEY_ID=...
+   R2_SECRET_ACCESS_KEY=...
+   R2_BUCKET=folio-media
+   R2_PUBLIC_URL=https://pub-xxxx.r2.dev
+   ```
+
+Files uploaded with the local driver aren't copied to R2 when you switch.
 
 ## Database
 

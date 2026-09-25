@@ -42,6 +42,7 @@ export default async function PostEditorPage({
       tags: found.tags,
       seoTitle: found.seoTitle,
       seoDescription: found.seoDescription,
+      coverImage: found.coverImage,
       status: found.status,
       publishedAt: found.publishedAt?.toISOString() ?? null,
       updatedAt: found.updatedAt.toISOString(),

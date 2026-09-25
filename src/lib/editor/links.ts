@@ -17,3 +17,14 @@ export function normalizeHref(input: string) {
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `mailto:${value}`;
   return `https://${value}`;
 }
+
+/** Allowed image sources: http(s) URLs and same-site paths (local storage). */
+export function isSafeImageSrc(src: unknown): src is string {
+  if (typeof src !== "string" || !src) return false;
+  if (src.startsWith("/")) return !src.startsWith("//");
+  try {
+    return ["http:", "https:"].includes(new URL(src).protocol);
+  } catch {
+    return false;
+  }
+}

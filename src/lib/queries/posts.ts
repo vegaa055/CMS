@@ -37,6 +37,9 @@ export async function getPostById(id: string) {
     columns: { searchVector: false },
     with: {
       author: { columns: { name: true, image: true } },
+      coverImage: {
+        columns: { url: true, alt: true, width: true, height: true },
+      },
       postTags: { with: { tag: { columns: { name: true, slug: true } } } },
     },
   });

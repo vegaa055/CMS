@@ -19,7 +19,11 @@ export const env = createEnv({
       .transform((v) => v === "true"),
     GITHUB_CLIENT_ID: z.string().optional(),
     GITHUB_CLIENT_SECRET: z.string().optional(),
-    // Phase 5: Cloudflare R2
+    /**
+     * Media storage backend. "local" writes to ./.uploads (development only);
+     * "r2" uses Cloudflare R2 with presigned direct uploads.
+     */
+    STORAGE_DRIVER: z.enum(["local", "r2"]).default("local"),
     R2_ACCOUNT_ID: z.string().optional(),
     R2_ACCESS_KEY_ID: z.string().optional(),
     R2_SECRET_ACCESS_KEY: z.string().optional(),
@@ -36,6 +40,7 @@ export const env = createEnv({
     AUTH_ALLOW_SIGNUP: process.env.AUTH_ALLOW_SIGNUP,
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+    STORAGE_DRIVER: process.env.STORAGE_DRIVER,
     R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
     R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
     R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,

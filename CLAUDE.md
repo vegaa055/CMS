@@ -22,3 +22,6 @@
 - Public visibility: always filter with `livePostWhere()`; display status with `effectiveStatus()`.
 - `/admin/posts/[id]` serves both `new` and edit; don't split it (the editor relies on staying mounted across new -> id).
 - Tests: `npm test` (pure units) and `npm run test:int` (hits `.env.local` DB; tests clean up their own `int-*` rows).
+- Media: storage via `getStorage()` (`src/lib/storage`, drivers `local` | `r2`, chosen by `STORAGE_DRIVER`). Flow: `requestUpload` (signed URL) -> browser PUT -> `completeUpload` (server re-verifies with `stat`). Only keys matching `MEDIA_KEY_PATTERN` are accepted anywhere. No SVG uploads.
+- Tiptap/ProseMirror JSON must go through `toPlainDoc()` before being passed to a server action (null-prototype attrs are dropped by React's serializer).
+- Images in content: only `isSafeImageSrc` sources survive sanitizing. Media list paging uses a Postgres-text timestamp cursor (JS Dates lose microseconds).

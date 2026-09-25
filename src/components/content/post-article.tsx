@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { RichText } from "@/components/content/rich-text";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
@@ -42,6 +44,18 @@ export function PostArticle({ post }: { post: RenderablePost }) {
           <span>{readingTime(words)} min read</span>
         </p>
       </header>
+      {post.coverImage && (
+        <figure className="bg-muted relative -mx-4 aspect-[16/9] overflow-hidden sm:mx-0 sm:rounded-xl">
+          <Image
+            src={post.coverImage.url}
+            alt={post.coverImage.alt ?? ""}
+            fill
+            priority
+            sizes="(min-width: 672px) 42rem, 100vw"
+            className="object-cover"
+          />
+        </figure>
+      )}
       <RichText doc={post.content} />
     </article>
   );

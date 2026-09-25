@@ -72,6 +72,17 @@ export function canPreviewPost(user: Actor, post: PostRef) {
   return canOnResource(user.role, "post:update", user.id, post.authorId);
 }
 
+/** Uploaders manage their own media; editors and admins manage all of it. */
+export function canManageMedia(
+  user: Actor,
+  media: { uploadedById: string | null },
+) {
+  return (
+    can(user.role, "media:delete:any") ||
+    (media.uploadedById === user.id && can(user.role, "media:upload"))
+  );
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
   editor: "Editor",

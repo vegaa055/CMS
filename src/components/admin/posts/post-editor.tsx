@@ -10,10 +10,12 @@ import {
   ArrowLeft,
   Check,
   Eye,
+  ImagePlus,
   Loader2,
   MoreHorizontal,
   Trash2,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -22,6 +24,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { savePost, type SavedPost } from "@/app/admin/posts/actions";
+import { MediaPickerDialog } from "@/components/admin/media/media-picker-dialog";
 import { DeletePostDialog } from "@/components/admin/posts/delete-post-dialog";
 import { EditorToolbar } from "@/components/admin/posts/editor-toolbar";
 import { TagPicker } from "@/components/admin/posts/tag-picker";
@@ -70,10 +73,13 @@ export type PostEditorPost = {
   tags: string[];
   seoTitle: string | null;
   seoDescription: string | null;
+  coverImage: CoverImage | null;
   status: PostStatus;
   publishedAt: string | null;
   updatedAt: string;
 };
+
+type CoverImage = { id: string; url: string; alt: string | null };
 
 export type PostEditorProps = {
   post: PostEditorPost | null;
@@ -97,6 +103,9 @@ const formSchema = z.object({
   tags: z.array(z.string()).max(20, "Up to 20 tags"),
   seoTitle: z.string().max(70, "Keep it under 70 characters"),
   seoDescription: z.string().max(160, "Keep it under 160 characters"),
+  coverImage: z
+    .object({ id: z.string(), url: z.string(), alt: z.string().nullable() })
+    .nullable(),
   scheduleAt: z.string(),
 });
 type FormValues = z.infer<typeof formSchema>;
@@ -157,6 +166,71 @@ function SaveIndicator({
   );
 }
 
+function CoverImageField({
+  value,
+  onChange,
+  error,
+}: {
+  value: CoverImage | null;
+  onChange: (value: CoverImage | null) => void;
+  error?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-col gap-2">
+      {value ? (
+        <div className="bg-muted relative aspect-video overflow-hidden rounded-lg border">
+          <Image
+            src={value.url}
+            alt={value.alt ?? ""}
+            fill
+            sizes="20rem"
+            className="object-cover"
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-muted-foreground hover:border-primary/50 hover:text-foreground flex aspect-video flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-sm transition-colors"
+        >
+          <ImagePlus className="size-5" />
+          Choose a cover image
+        </button>
+      )}
+      {value && (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setOpen(true)}
+          >
+            Change
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onChange(null)}
+          >
+            Remove
+          </Button>
+        </div>
+      )}
+      {error && <p className="text-destructive text-sm">{error}</p>}
+      <MediaPickerDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Choose a cover image"
+        onSelect={(item) =>
+          onChange({ id: item.id, url: item.url, alt: item.alt })
+        }
+      />
+    </div>
+  );
+}
+
 export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
   const router = useRouter();
   const [meta, setMeta] = useState<Meta>(() => ({
@@ -191,6 +265,7 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
       tags: post?.tags ?? [],
       seoTitle: post?.seoTitle ?? "",
       seoDescription: post?.seoDescription ?? "",
+      coverImage: post?.coverImage ?? null,
       scheduleAt:
         post?.status === "scheduled" ? toDateTimeLocal(post.publishedAt) : "",
     },
@@ -284,6 +359,7 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
             tags: values.tags,
             seoTitle: values.seoTitle,
             seoDescription: values.seoDescription,
+            coverImageId: values.coverImage?.id ?? null,
             status,
             publishedAt,
           });
@@ -633,6 +709,25 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
                 </>
               )}
             </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Cover image</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Controller
+                name="coverImage"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <CoverImageField
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+            </CardContent>
           </Card>
 
           <Card>

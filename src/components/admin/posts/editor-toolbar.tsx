@@ -6,6 +6,7 @@ import {
   Code,
   Heading2,
   Heading3,
+  ImageIcon,
   Italic,
   Link2,
   List,
@@ -20,6 +21,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+
+import { MediaPickerDialog } from "@/components/admin/media/media-picker-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -164,6 +167,31 @@ function LinkButton({ editor, active }: { editor: Editor; active: boolean }) {
   );
 }
 
+function ImageButton({ editor }: { editor: Editor }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <ToolbarToggle
+        icon={ImageIcon}
+        label="Image"
+        onClick={() => setOpen(true)}
+      />
+      <MediaPickerDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Insert an image"
+        onSelect={(item) =>
+          editor
+            .chain()
+            .focus()
+            .setImage({ src: item.url, alt: item.alt ?? "" })
+            .run()
+        }
+      />
+    </>
+  );
+}
+
 export function EditorToolbar({ editor }: { editor: Editor }) {
   const state = useEditorState({
     editor,
@@ -270,6 +298,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
         label="Divider"
         onClick={() => chain().setHorizontalRule().run()}
       />
+      <ImageButton editor={editor} />
       <Separator orientation="vertical" className="mx-1 h-5!" />
       <ToolbarToggle
         icon={Undo2}

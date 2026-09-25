@@ -1,4 +1,5 @@
 import type { Extensions } from "@tiptap/core";
+import Image from "@tiptap/extension-image";
 import StarterKit from "@tiptap/starter-kit";
 
 import type { RichTextDoc } from "@/db/schema";
@@ -17,6 +18,11 @@ export const contentExtensions: Extensions = [
       defaultProtocol: "https",
       HTMLAttributes: { rel: "noopener noreferrer nofollow", target: null },
     },
+  }),
+  Image.configure({
+    inline: false,
+    allowBase64: false,
+    HTMLAttributes: { loading: "lazy", decoding: "async" },
   }),
 ];
 

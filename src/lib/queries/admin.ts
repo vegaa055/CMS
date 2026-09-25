@@ -149,7 +149,10 @@ export async function getPostForEdit(id: string) {
   const post = await db.query.posts.findFirst({
     where: eq(posts.id, id),
     columns: { searchVector: false, contentText: false },
-    with: { postTags: { with: { tag: { columns: { name: true } } } } },
+    with: {
+      postTags: { with: { tag: { columns: { name: true } } } },
+      coverImage: { columns: { id: true, url: true, alt: true } },
+    },
   });
   if (!post) return undefined;
   const { postTags: pt, ...rest } = post;

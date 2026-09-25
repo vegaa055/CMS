@@ -190,6 +190,9 @@
   & :where(a) {
     text-underline-offset: 3px;
   }
+  & :where(img) {
+    border-radius: var(--radius);
+  }
 }
 
 /* Tiptap editor chrome */
@@ -202,4 +205,11 @@
   height: 0;
   pointer-events: none;
   color: var(--muted-foreground);
+}
+.tiptap img {
+  border-radius: var(--radius);
+}
+.tiptap img.ProseMirror-selectednode {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
 }
