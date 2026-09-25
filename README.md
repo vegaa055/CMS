@@ -23,7 +23,7 @@ A modern, general-purpose CMS built with Next.js, Postgres, and a dark-first des
 
 ```bash
 npm install
-cp .env.example .env.local
+cp -n .env.example .env.local   # -n: never overwrites an existing .env.local
 npm run dev
 ```
 
