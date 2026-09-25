@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { contentExtensions } from "./extensions";
 import { sanitizeDoc } from "./sanitize";
+import { toPlainDoc } from "./serialize";
 
 let editor: Editor | undefined;
 afterEach(() => editor?.destroy());
@@ -89,5 +90,42 @@ describe("editor -> sanitizer round-trip", () => {
     const json = e.getJSON();
     const clean = sanitizeDoc(json);
     expect(clean.content?.length).toBe(json.content?.length);
+  });
+
+  it("serializes attrs as plain objects for server actions", () => {
+    const e = makeEditor();
+    e.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2 },
+          content: [
+            {
+              type: "text",
+              text: "Link",
+              marks: [{ type: "link", attrs: { href: "https://x.dev" } }],
+            },
+          ],
+        },
+      ],
+    });
+    type J = { attrs?: object; content?: J[]; marks?: J[] };
+    const raw = e.getJSON() as J;
+    // ProseMirror's null-prototype attrs are what React refuses to serialize.
+    expect(Object.getPrototypeOf(raw.content![0]!.attrs)).toBeNull();
+
+    const nonPlain: string[] = [];
+    const walk = (n: J, path: string) => {
+      for (const [key, obj] of [["attrs", n.attrs]] as const) {
+        if (obj && Object.getPrototypeOf(obj) !== Object.prototype) {
+          nonPlain.push(`${path}.${key}`);
+        }
+      }
+      n.content?.forEach((c, i) => walk(c, `${path}.content[${i}]`));
+      n.marks?.forEach((m, i) => walk(m, `${path}.marks[${i}]`));
+    };
+    walk(toPlainDoc(raw as never) as J, "doc");
+    expect(nonPlain).toEqual([]);
   });
 });

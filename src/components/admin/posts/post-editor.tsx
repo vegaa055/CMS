@@ -54,6 +54,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { RichTextDoc } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { contentExtensions, EMPTY_DOC } from "@/lib/editor/extensions";
+import { toPlainDoc } from "@/lib/editor/serialize";
 import { formatDateTime, toDateTimeLocal } from "@/lib/format";
 import { readingTime, type PostStatus } from "@/lib/posts/status";
 import { postPath, previewPath } from "@/lib/posts/urls";
@@ -279,7 +280,7 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
             title: values.title,
             slug: values.slug,
             excerpt: values.excerpt,
-            content: editor.getJSON(),
+            content: toPlainDoc(editor.getJSON()),
             tags: values.tags,
             seoTitle: values.seoTitle,
             seoDescription: values.seoDescription,

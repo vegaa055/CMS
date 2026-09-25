@@ -59,6 +59,8 @@ function ToolbarToggle({
           size="sm"
           pressed={pressed ?? false}
           onPressedChange={onClick}
+          // Keep focus (and the selection) in the editor when clicking.
+          onMouseDown={(e) => e.preventDefault()}
           disabled={disabled}
           aria-label={label}
         >
