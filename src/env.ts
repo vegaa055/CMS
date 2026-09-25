@@ -4,17 +4,21 @@ import { z } from "zod";
 /**
  * Typed, validated environment variables. Import `env` instead of reading
  * `process.env` directly so a missing variable fails loudly at startup.
- * Variables are optional until the phase that needs them makes them required.
  */
 export const env = createEnv({
   server: {
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    // Phase 1: Neon Postgres
-    DATABASE_URL: z.url().optional(),
-    // Phase 2: Better Auth
-    BETTER_AUTH_SECRET: z.string().min(32).optional(),
+    DATABASE_URL: z.url(),
+    BETTER_AUTH_SECRET: z.string().min(32),
+    /** Allow public sign-up after the first (admin) account exists. */
+    AUTH_ALLOW_SIGNUP: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
+    GITHUB_CLIENT_ID: z.string().optional(),
+    GITHUB_CLIENT_SECRET: z.string().optional(),
     // Phase 5: Cloudflare R2
     R2_ACCOUNT_ID: z.string().optional(),
     R2_ACCESS_KEY_ID: z.string().optional(),
@@ -29,6 +33,9 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+    AUTH_ALLOW_SIGNUP: process.env.AUTH_ALLOW_SIGNUP,
+    GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+    GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
     R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
     R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
     R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
@@ -37,4 +44,6 @@ export const env = createEnv({
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
   emptyStringAsUndefined: true,
+  // Lets CI lint/typecheck without real secrets.
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           disableTransitionOnChange
         >
           {children}
+          <Toaster richColors closeButton />
         </ThemeProvider>
       </body>
     </html>

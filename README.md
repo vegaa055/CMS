@@ -43,7 +43,7 @@ Open http://localhost:3000.
 
 - [x] **Phase 0** — Scaffold, design tokens, dark/light theme
 - [x] **Phase 1** — Neon + Drizzle schema, migrations, seed
-- [ ] **Phase 2** — Auth (Better Auth) and roles
+- [x] **Phase 2** — Auth (Better Auth) and roles
 - [ ] **Phase 3** — Admin dashboard shell
 - [ ] **Phase 4** — Posts: editor, drafts, publishing, tags
 - [ ] **Phase 5** — Media library on R2
@@ -52,6 +52,16 @@ Open http://localhost:3000.
 - [ ] **Phase 8** — Tests, CI, Vercel deploy
 
 The previous PHP version of this project is preserved at the `legacy-php` git tag.
+
+## Authentication
+
+Better Auth (email/password, optional GitHub OAuth) with three roles: **admin**, **editor**, **author**.
+
+- The **first account** to register becomes the admin. After that, registration is closed
+  unless `AUTH_ALLOW_SIGNUP=true`.
+- `/admin` is gated optimistically in `src/proxy.ts`; every page and server action
+  re-checks with `requireSession()` / `requirePermission()` from `src/lib/auth/session.ts`.
+- Permissions live in `src/lib/auth/permissions.ts`.
 
 ## Database
 

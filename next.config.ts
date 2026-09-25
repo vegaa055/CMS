@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    // Enables forbidden() / unauthorized() for role checks.
+    authInterrupts: true,
+  },
 };
 
 export default nextConfig;

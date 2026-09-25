@@ -11,3 +11,5 @@
 - Schema changes: edit `src/db/schema/*`, then `npm run db:generate && npm run db:migrate`. Never hand-edit applied migrations.
 - Keep `posts.content_text` in sync with `posts.content` via `richTextToPlainText` (feeds the generated `search_vector`).
 - Neon project `folio-cms` (snowy-credit-18981856): `main` = prod, `dev` = local.
+- Auth: server `@/lib/auth` (Better Auth instance), client `@/lib/auth/client`. Guard admin pages and every server action with `requireSession()` / `requirePermission()`; `proxy.ts` is only an optimistic cookie check.
+- Roles/permissions: `src/lib/auth/permissions.ts` (`can`, `canOnResource`). Never trust client-supplied roles.
