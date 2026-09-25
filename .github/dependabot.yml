@@ -11,6 +11,15 @@ updates:
       # Pinned on purpose: v9 has a different API (see CLAUDE.md).
       - dependency-name: "@tanstack/react-table"
         update-types: ["version-update:semver-major"]
+      # Keep Node types matched to the runtime (Node 24 on Vercel and CI).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # Toolchain majors need deliberate migrations (e.g. TS 7, ESLint 10);
+      # upgrade these by hand once Next.js supports them.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
