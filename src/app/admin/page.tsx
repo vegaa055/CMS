@@ -144,7 +144,12 @@ export default async function DashboardPage() {
                   className="flex items-center justify-between gap-4 px-2 py-3"
                 >
                   <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium">{post.title}</span>
+                    <Link
+                      href={`/admin/posts/${post.id}`}
+                      className="truncate font-medium hover:underline"
+                    >
+                      {post.title || "Untitled"}
+                    </Link>
                     <span className="text-muted-foreground text-xs">
                       {post.author?.name ?? "Unknown author"} · updated{" "}
                       {formatRelative(post.updatedAt)}

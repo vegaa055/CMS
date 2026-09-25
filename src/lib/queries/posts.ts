@@ -1,18 +1,15 @@
 import "server-only";
 
-import { and, desc, eq, isNotNull, lte } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { posts } from "@/db/schema";
+import { livePostWhere } from "@/lib/posts/visibility";
 
 /** Published posts, newest first, with author and tags. */
 export async function getPublishedPosts({ limit = 10 } = {}) {
   return db.query.posts.findMany({
-    where: and(
-      eq(posts.status, "published"),
-      isNotNull(posts.publishedAt),
-      lte(posts.publishedAt, new Date()),
-    ),
+    where: livePostWhere(),
     orderBy: desc(posts.publishedAt),
     limit,
     columns: {
@@ -32,3 +29,19 @@ export async function getPublishedPosts({ limit = 10 } = {}) {
 export type PublishedPostSummary = Awaited<
   ReturnType<typeof getPublishedPosts>
 >[number];
+
+/** Any post by id with the fields needed to render it. Callers must authorize. */
+export async function getPostById(id: string) {
+  return db.query.posts.findFirst({
+    where: eq(posts.id, id),
+    columns: { searchVector: false },
+    with: {
+      author: { columns: { name: true, image: true } },
+      postTags: { with: { tag: { columns: { name: true, slug: true } } } },
+    },
+  });
+}
+
+export type RenderablePost = NonNullable<
+  Awaited<ReturnType<typeof getPostById>>
+>;

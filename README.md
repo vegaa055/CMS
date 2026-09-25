@@ -31,13 +31,15 @@ Open http://localhost:3000.
 
 ## Scripts
 
-| Script              | Purpose                             |
-| ------------------- | ----------------------------------- |
-| `npm run dev`       | Start the dev server (Turbopack)    |
-| `npm run build`     | Production build                    |
-| `npm run lint`      | ESLint                              |
-| `npm run typecheck` | Generate route types and run `tsc`  |
-| `npm run format`    | Prettier (with Tailwind class sort) |
+| Script              | Purpose                                   |
+| ------------------- | ----------------------------------------- |
+| `npm run dev`       | Start the dev server (Turbopack)          |
+| `npm run build`     | Production build                          |
+| `npm run lint`      | ESLint                                    |
+| `npm run typecheck` | Generate route types and run `tsc`        |
+| `npm run format`    | Prettier (with Tailwind class sort)       |
+| `npm test`          | Unit tests (Vitest)                       |
+| `npm run test:int`  | Integration tests against `.env.local` DB |
 
 ## Roadmap
 
@@ -45,7 +47,7 @@ Open http://localhost:3000.
 - [x] **Phase 1** — Neon + Drizzle schema, migrations, seed
 - [x] **Phase 2** — Auth (Better Auth) and roles
 - [x] **Phase 3** — Admin dashboard shell
-- [ ] **Phase 4** — Posts: editor, drafts, publishing, tags
+- [x] **Phase 4** — Posts: editor, drafts, publishing, tags
 - [ ] **Phase 5** — Media library on R2
 - [ ] **Phase 6** — Public site, search, SEO, RSS
 - [ ] **Phase 7** — User management and site settings
@@ -62,6 +64,16 @@ Better Auth (email/password, optional GitHub OAuth) with three roles: **admin**,
 - `/admin` is gated optimistically in `src/proxy.ts`; every page and server action
   re-checks with `requireSession()` / `requirePermission()` from `src/lib/auth/session.ts`.
 - Permissions live in `src/lib/auth/permissions.ts`.
+
+## Content
+
+- Posts are written in a Tiptap editor and stored as ProseMirror JSON (`posts.content`), validated
+  against the editor schema and link-sanitized on save. They are rendered server-side with the same
+  extensions (`src/lib/editor/extensions.ts`), so no editor JS ships to readers.
+- Drafts autosave; published posts change only on an explicit **Update**.
+- Statuses: `draft` → `scheduled` / `published` → `archived`. A scheduled post goes live when its
+  publish time passes, without a cron job (see `livePostWhere` / `effectiveStatus`).
+- Authors write drafts; editors and admins publish. Drafts can be previewed at `/preview/posts/<id>`.
 
 ## Database
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { PageHeader } from "@/components/admin/page-header";
-import { TagsTable } from "@/components/admin/tags/tags-table";
+import { NewTagButton, TagsTable } from "@/components/admin/tags/tags-table";
 import { requirePermission } from "@/lib/auth/session";
 import { getAdminTags } from "@/lib/queries/admin";
 
@@ -13,7 +13,9 @@ export default async function TagsPage() {
 
   return (
     <>
-      <PageHeader title="Tags" description="Topics used to organize posts." />
+      <PageHeader title="Tags" description="Topics used to organize posts.">
+        <NewTagButton />
+      </PageHeader>
       <TagsTable data={tags} />
     </>
   );

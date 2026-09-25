@@ -46,6 +46,32 @@ export function canOnResource(
   return ownerId === userId && can(role, `${action}:own`);
 }
 
+type Actor = { id: string; role: Role };
+type PostRef = { authorId: string | null; status: string };
+
+/**
+ * Authors may only touch their own drafts; once a post is scheduled or live,
+ * only roles that can publish may change or delete it.
+ */
+export function canEditPost(user: Actor, post: PostRef) {
+  if (!canOnResource(user.role, "post:update", user.id, post.authorId)) {
+    return false;
+  }
+  return can(user.role, "post:publish") || post.status === "draft";
+}
+
+export function canDeletePost(user: Actor, post: PostRef) {
+  if (!canOnResource(user.role, "post:delete", user.id, post.authorId)) {
+    return false;
+  }
+  return can(user.role, "post:publish") || post.status === "draft";
+}
+
+/** Anyone who could edit the post, or who can edit any post, can preview it. */
+export function canPreviewPost(user: Actor, post: PostRef) {
+  return canOnResource(user.role, "post:update", user.id, post.authorId);
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
   editor: "Editor",

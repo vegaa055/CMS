@@ -4,8 +4,12 @@ import { count, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { media, posts, postTags, tags, user } from "@/db/schema";
-import { can } from "@/lib/auth/permissions";
+import { can, canDeletePost, canEditPost } from "@/lib/auth/permissions";
 import type { AppSession } from "@/lib/auth/session";
+import { effectiveStatus, type PostStatus } from "@/lib/posts/status";
+
+/** Stored status, with past-due scheduled posts counted as published. */
+const effectiveStatusSql = sql<PostStatus>`case when ${posts.status} = 'scheduled' and ${posts.publishedAt} <= now() then 'published' else ${posts.status}::text end`;
 
 /**
  * Post visibility in the dashboard: editors/admins see everything, authors
@@ -22,10 +26,10 @@ export async function getDashboardStats(session: AppSession) {
   const [statusCounts, [mediaCount], [tagCount], [userCount]] =
     await Promise.all([
       db
-        .select({ status: posts.status, count: count() })
+        .select({ status: effectiveStatusSql, count: count() })
         .from(posts)
         .where(scope)
-        .groupBy(posts.status),
+        .groupBy(effectiveStatusSql),
       db.select({ count: count() }).from(media),
       db.select({ count: count() }).from(tags),
       db.select({ count: count() }).from(user),
@@ -33,7 +37,7 @@ export async function getDashboardStats(session: AppSession) {
 
   const byStatus = Object.fromEntries(
     statusCounts.map((r) => [r.status, r.count]),
-  ) as Partial<Record<(typeof statusCounts)[number]["status"], number>>;
+  ) as Partial<Record<PostStatus, number>>;
 
   return {
     published: byStatus.published ?? 0,
@@ -46,13 +50,23 @@ export async function getDashboardStats(session: AppSession) {
 }
 
 export async function getRecentPosts(session: AppSession, limit = 5) {
-  return db.query.posts.findMany({
+  const rows = await db.query.posts.findMany({
     where: postScope(session),
     orderBy: desc(posts.updatedAt),
     limit,
-    columns: { id: true, title: true, status: true, updatedAt: true },
+    columns: {
+      id: true,
+      title: true,
+      status: true,
+      publishedAt: true,
+      updatedAt: true,
+    },
     with: { author: { columns: { name: true } } },
   });
+  return rows.map((p) => ({
+    ...p,
+    status: effectiveStatus(p.status, p.publishedAt),
+  }));
 }
 
 /** Rows for the admin posts table (serializable for the client table). */
@@ -65,6 +79,7 @@ export async function getAdminPosts(session: AppSession) {
       title: true,
       slug: true,
       status: true,
+      authorId: true,
       publishedAt: true,
       updatedAt: true,
     },
@@ -73,13 +88,20 @@ export async function getAdminPosts(session: AppSession) {
       postTags: { with: { tag: { columns: { name: true } } } },
     },
   });
-  return rows.map(({ postTags: pt, author, ...p }) => ({
-    ...p,
-    author: author?.name ?? null,
-    tags: pt.map((t) => t.tag.name),
-    publishedAt: p.publishedAt?.toISOString() ?? null,
-    updatedAt: p.updatedAt.toISOString(),
-  }));
+  return rows.map(({ postTags: pt, author, authorId, ...p }) => {
+    const status = effectiveStatus(p.status, p.publishedAt);
+    const ref = { authorId, status };
+    return {
+      ...p,
+      status,
+      canEdit: canEditPost(session.user, ref),
+      canDelete: canDeletePost(session.user, ref),
+      author: author?.name ?? null,
+      tags: pt.map((t) => t.tag.name),
+      publishedAt: p.publishedAt?.toISOString() ?? null,
+      updatedAt: p.updatedAt.toISOString(),
+    };
+  });
 }
 
 export type AdminPostRow = Awaited<ReturnType<typeof getAdminPosts>>[number];
@@ -121,3 +143,31 @@ export async function getAdminUsers() {
 }
 
 export type AdminUserRow = Awaited<ReturnType<typeof getAdminUsers>>[number];
+
+/** Full post for the editor, or undefined. Callers must authorize. */
+export async function getPostForEdit(id: string) {
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, id),
+    columns: { searchVector: false, contentText: false },
+    with: { postTags: { with: { tag: { columns: { name: true } } } } },
+  });
+  if (!post) return undefined;
+  const { postTags: pt, ...rest } = post;
+  return {
+    ...rest,
+    status: effectiveStatus(rest.status, rest.publishedAt),
+    tags: pt.map((t) => t.tag.name),
+  };
+}
+
+export type PostForEdit = NonNullable<
+  Awaited<ReturnType<typeof getPostForEdit>>
+>;
+
+export async function getAllTagNames() {
+  const rows = await db
+    .select({ name: tags.name })
+    .from(tags)
+    .orderBy(tags.name);
+  return rows.map((r) => r.name);
+}

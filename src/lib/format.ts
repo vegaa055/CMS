@@ -30,3 +30,21 @@ export function formatRelative(date: Date | string, now = Date.now()) {
   }
   return "just now";
 }
+
+/** Local date + time, e.g. "Sep 25, 2026, 3:30 PM". Client components only. */
+export function formatDateTime(date: Date | string | null | undefined) {
+  if (!date) return "—";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(date));
+}
+
+/** ISO string -> value for <input type="datetime-local"> in local time. */
+export function toDateTimeLocal(date: Date | string | null | undefined) {
+  if (!date) return "";
+  const d = new Date(date);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}

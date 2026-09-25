@@ -17,3 +17,8 @@
 - TanStack Table is pinned to v8 (v9 has a different API).
 - Drizzle gotcha: in single-table selects, raw `sql` column refs are unqualified — use joins + groupBy instead of correlated subqueries.
 - Session role is cached in a cookie for 5 min (`cookieCache`); role changes need session revocation to apply immediately.
+- Editor schema: add/remove Tiptap node or mark extensions only in `src/lib/editor/extensions.ts` (shared by editor, sanitizer, renderer). Editor-only UX extensions (placeholder, typography) go in the editor component.
+- Server actions return `ActionResult` (`@/lib/action-result`) and authorize with `getSession()` + permission helpers — never trust ids/roles from the client. Postgres error codes: use `pgError()` from `@/db/errors` (Drizzle wraps driver errors).
+- Public visibility: always filter with `livePostWhere()`; display status with `effectiveStatus()`.
+- `/admin/posts/[id]` serves both `new` and edit; don't split it (the editor relies on staying mounted across new -> id).
+- Tests: `npm test` (pure units) and `npm run test:int` (hits `.env.local` DB; tests clean up their own `int-*` rows).

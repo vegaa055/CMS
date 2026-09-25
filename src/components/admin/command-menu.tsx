@@ -1,6 +1,14 @@
 "use client";
 
-import { ExternalLink, LogOut, Monitor, Moon, Search, Sun } from "lucide-react";
+import {
+  ExternalLink,
+  LogOut,
+  Monitor,
+  Moon,
+  Plus,
+  Search,
+  Sun,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -60,6 +68,17 @@ export function CommandMenu({ role }: { role: Role }) {
         <CommandInput placeholder="Type a command or search…" />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
+          {can(role, "post:create") && (
+            <CommandGroup heading="Create">
+              <CommandItem
+                value="New post"
+                keywords={["write", "draft", "article"]}
+                onSelect={() => run(() => router.push("/admin/posts/new"))}
+              >
+                <Plus /> New post
+              </CommandItem>
+            </CommandGroup>
+          )}
           {adminNav.map((group) => {
             const items = group.items.filter((i) => can(role, i.permission));
             if (!items.length) return null;
