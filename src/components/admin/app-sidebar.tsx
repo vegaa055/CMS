@@ -18,10 +18,15 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { adminNav, findNavItem } from "@/config/admin-nav";
-import { siteConfig } from "@/config/site";
 import { can } from "@/lib/auth/permissions";
 
-export function AppSidebar({ user }: { user: NavUserProps["user"] }) {
+export function AppSidebar({
+  user,
+  siteName,
+}: {
+  user: NavUserProps["user"];
+  siteName: string;
+}) {
   const pathname = usePathname();
   const active = findNavItem(pathname);
 
@@ -40,11 +45,11 @@ export function AppSidebar({ user }: { user: NavUserProps["user"] }) {
             <SidebarMenuButton size="lg" asChild>
               <Link href="/admin">
                 <span className="bg-primary font-display text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-lg">
-                  {siteConfig.name.charAt(0)}
+                  {siteName.charAt(0)}
                 </span>
                 <span className="flex flex-col leading-tight">
                   <span className="font-display text-lg tracking-tight">
-                    {siteConfig.name}
+                    {siteName}
                   </span>
                   <span className="text-muted-foreground text-xs">
                     Dashboard

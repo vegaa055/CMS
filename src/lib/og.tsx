@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 import { siteConfig } from "@/config/site";
+import { getSiteSettings } from "@/lib/settings";
 
 export const ogSize = { width: 1200, height: 630 };
 
@@ -47,7 +48,10 @@ export async function renderOgImage({
   eyebrow?: string;
   footer?: string;
 }) {
-  const [serif, sans] = await loadFonts();
+  const [[serif, sans], site] = await Promise.all([
+    loadFonts(),
+    getSiteSettings(),
+  ]);
   return new ImageResponse(
     <div
       style={{
@@ -79,7 +83,7 @@ export async function renderOgImage({
             color: colors.foreground,
           }}
         >
-          {siteConfig.name}
+          {site.name}
         </span>
         {eyebrow && (
           <span
@@ -119,7 +123,7 @@ export async function renderOgImage({
           color: colors.muted,
         }}
       >
-        <span>{footer ?? siteConfig.tagline}</span>
+        <span>{footer ?? site.tagline}</span>
         <span style={{ color: colors.primary }}>
           {new URL(siteConfig.url).host}
         </span>

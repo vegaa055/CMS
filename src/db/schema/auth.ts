@@ -24,6 +24,8 @@ export const user = pgTable("user", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   role: userRole("role").notNull().default("author"),
+  /** Public handle for author pages (/authors/<username>). */
+  username: text("username").unique(),
   bio: text("bio"),
   ...timestamps,
 });
@@ -79,4 +81,25 @@ export const verification = pgTable(
     ...timestamps,
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
+);
+
+/**
+ * Invite-only registration. Only a SHA-256 hash of the token is stored; the
+ * raw token exists solely in the invite link shown once to the admin.
+ */
+export const invitation = pgTable(
+  "invitation",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    role: userRole("role").notNull().default("author"),
+    tokenHash: text("token_hash").notNull().unique(),
+    invitedById: text("invited_by_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("invitation_email_idx").on(t.email)],
 );

@@ -36,7 +36,7 @@ export async function getPostById(id: string) {
     where: eq(posts.id, id),
     columns: { searchVector: false },
     with: {
-      author: { columns: { name: true, image: true } },
+      author: { columns: { name: true, image: true, username: true } },
       coverImage: {
         columns: { url: true, alt: true, width: true, height: true },
       },

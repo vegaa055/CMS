@@ -1,6 +1,7 @@
 import Image from "next/image";
 
 import { RichText } from "@/components/content/rich-text";
+import { AuthorLink } from "@/components/site/post-meta";
 import { TagLinks } from "@/components/site/tag-links";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
@@ -43,7 +44,7 @@ export function PostArticle({
           </p>
         )}
         <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-sm">
-          {post.author && <span>{post.author.name}</span>}
+          {post.author && <AuthorLink author={post.author} />}
           {post.publishedAt && (
             <>
               <span aria-hidden>·</span>

@@ -14,6 +14,7 @@ import {
   getLivePostSlugs,
   getRelatedPosts,
 } from "@/lib/queries/public";
+import { getSiteSettings } from "@/lib/settings";
 
 export const revalidate = 300;
 
@@ -56,7 +57,9 @@ export async function generateMetadata({
 /** schema.org BlogPosting for rich results. */
 function JsonLd({
   post,
+  siteName,
 }: {
+  siteName: string;
   post: NonNullable<Awaited<ReturnType<typeof getPost>>>;
 }) {
   const url = new URL(postPath(post.slug), siteConfig.url).href;
@@ -75,7 +78,7 @@ function JsonLd({
     author: post.author
       ? { "@type": "Person", name: post.author.name }
       : undefined,
-    publisher: { "@type": "Organization", name: siteConfig.name },
+    publisher: { "@type": "Organization", name: siteName },
     keywords: post.postTags.map((pt) => pt.tag.name).join(", ") || undefined,
   };
   return (
@@ -93,17 +96,18 @@ export default async function PostPage({ params }: PageProps<"/posts/[slug]">) {
   const post = await getPost((await params).slug);
   if (!post) notFound();
 
-  const [adjacent, related] = await Promise.all([
+  const [adjacent, related, site] = await Promise.all([
     getAdjacentPosts({ id: post.id, publishedAt: post.publishedAt! }),
     getRelatedPosts(
       post.id,
       post.postTags.map((pt) => pt.tag.id),
     ),
+    getSiteSettings(),
   ]);
 
   return (
     <div className="flex flex-col gap-16">
-      <JsonLd post={post} />
+      <JsonLd post={post} siteName={site.name} />
       <PostArticle post={post} linkTags />
 
       {(adjacent.older || adjacent.newer) && (

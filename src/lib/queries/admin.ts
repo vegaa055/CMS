@@ -1,9 +1,9 @@
 import "server-only";
 
-import { count, desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { media, posts, postTags, tags, user } from "@/db/schema";
+import { invitation, media, posts, postTags, tags, user } from "@/db/schema";
 import { can, canDeletePost, canEditPost } from "@/lib/auth/permissions";
 import type { AppSession } from "@/lib/auth/session";
 import { effectiveStatus, type PostStatus } from "@/lib/posts/status";
@@ -132,6 +132,7 @@ export async function getAdminUsers() {
       email: user.email,
       image: user.image,
       role: user.role,
+      username: user.username,
       createdAt: user.createdAt,
       postCount: sql<number>`count(${posts.id})::int`,
     })
@@ -174,3 +175,31 @@ export async function getAllTagNames() {
     .orderBy(tags.name);
   return rows.map((r) => r.name);
 }
+
+/** Pending invitations (accepted ones are history, expired ones can be reissued). */
+export async function getPendingInvites() {
+  const rows = await db.query.invitation.findMany({
+    where: isNull(invitation.acceptedAt),
+    orderBy: desc(invitation.createdAt),
+    columns: {
+      id: true,
+      email: true,
+      role: true,
+      expiresAt: true,
+      createdAt: true,
+    },
+    with: { invitedBy: { columns: { name: true } } },
+  });
+  const now = Date.now();
+  return rows.map((r) => ({
+    ...r,
+    expired: r.expiresAt.getTime() <= now,
+    expiresAt: r.expiresAt.toISOString(),
+    createdAt: r.createdAt.toISOString(),
+    invitedBy: r.invitedBy?.name ?? null,
+  }));
+}
+
+export type PendingInvite = Awaited<
+  ReturnType<typeof getPendingInvites>
+>[number];

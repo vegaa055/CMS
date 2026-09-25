@@ -8,6 +8,7 @@ import { contentExtensions } from "@/lib/editor/extensions";
 import { summarize } from "@/lib/posts/excerpt";
 import { postPath } from "@/lib/posts/urls";
 import { livePostWhere } from "@/lib/posts/visibility";
+import { getSiteSettings } from "@/lib/settings";
 
 // Cached like the rest of the public site; refreshed on publish.
 export const dynamic = "force-static";
@@ -34,6 +35,7 @@ const absolutize = (html: string) =>
 
 /** RSS 2.0 feed of the latest posts with full content. */
 export async function GET() {
+  const siteSettings = await getSiteSettings();
   const rows = await db.query.posts.findMany({
     where: livePostWhere(),
     orderBy: desc(posts.publishedAt),
@@ -78,9 +80,9 @@ export async function GET() {
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
-    <title>${xml(siteConfig.name)}</title>
+    <title>${xml(siteSettings.name)}</title>
     <link>${site}</link>
-    <description>${xml(siteConfig.description)}</description>
+    <description>${xml(siteSettings.description)}</description>
     <language>en</language>
     <atom:link href="${site}/feed.xml" rel="self" type="application/rss+xml" />
     ${rows[0]?.publishedAt ? `<lastBuildDate>${rows[0].publishedAt.toUTCString()}</lastBuildDate>` : ""}

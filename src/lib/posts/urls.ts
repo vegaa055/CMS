@@ -10,3 +10,7 @@ export function previewPath(id: string) {
 export function tagPath(slug: string) {
   return `/tags/${slug}`;
 }
+
+export function authorPath(username: string) {
+  return `/authors/${username}`;
+}

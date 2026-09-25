@@ -7,6 +7,7 @@ import {
   eq,
   gt,
   inArray,
+  isNotNull,
   lt,
   ne,
   or,
@@ -14,7 +15,7 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@/db";
-import { posts, postTags, tags } from "@/db/schema";
+import { posts, postTags, tags, user } from "@/db/schema";
 import { summarize } from "@/lib/posts/excerpt";
 import { readingTime } from "@/lib/posts/status";
 import { livePostWhere } from "@/lib/posts/visibility";
@@ -43,7 +44,7 @@ const summaryQuery = {
     textPreview: textPreview.as("text_preview"),
   },
   with: {
-    author: { columns: { name: true } },
+    author: { columns: { name: true, username: true } },
     coverImage: { columns: { url: true, alt: true } },
     postTags: { with: { tag: { columns: { name: true, slug: true } } } },
   },
@@ -60,7 +61,7 @@ export type PostSummary = {
   excerpt: string;
   publishedAt: Date;
   readingTime: number;
-  author: string | null;
+  author: { name: string; username: string | null } | null;
   cover: { url: string; alt: string | null } | null;
   tags: { name: string; slug: string }[];
 };
@@ -73,7 +74,7 @@ function toSummary(row: SummaryRow): PostSummary {
     excerpt: row.excerpt || summarize(row.textPreview),
     publishedAt: row.publishedAt!,
     readingTime: readingTime(Number(row.wordCount)),
-    author: row.author?.name ?? null,
+    author: row.author,
     cover: row.coverImage,
     tags: row.postTags.map((pt) => pt.tag),
   };
@@ -92,10 +93,17 @@ export async function getLivePosts({
   page = 1,
   perPage = POSTS_PER_PAGE,
   tagSlug,
-}: { page?: number; perPage?: number; tagSlug?: string } = {}) {
+  authorId,
+}: {
+  page?: number;
+  perPage?: number;
+  tagSlug?: string;
+  authorId?: string;
+} = {}) {
   const where = and(
     livePostWhere(),
     tagSlug ? inArray(posts.id, postsWithTag(tagSlug)) : undefined,
+    authorId ? eq(posts.authorId, authorId) : undefined,
   );
   const [rows, [total]] = await Promise.all([
     db.query.posts.findMany({
@@ -121,7 +129,7 @@ export async function getLivePostBySlug(slug: string) {
     where: and(eq(posts.slug, slug), livePostWhere()),
     columns: { searchVector: false },
     with: {
-      author: { columns: { name: true, image: true } },
+      author: { columns: { name: true, image: true, username: true } },
       coverImage: {
         columns: { url: true, alt: true, width: true, height: true },
       },
@@ -291,4 +299,28 @@ export async function searchPosts(
   return ranked
     .filter((r) => byId.has(r.id))
     .map((r) => ({ ...byId.get(r.id)!, snippet: r.snippet }));
+}
+
+/** Public profile for an author page, or undefined. */
+export async function getAuthorByUsername(username: string) {
+  const [author] = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      image: user.image,
+      bio: user.bio,
+    })
+    .from(user)
+    .where(eq(user.username, username.toLowerCase()));
+  return author;
+}
+
+/** Authors with a username and at least one live post (for the sitemap). */
+export async function getLiveAuthors() {
+  return db
+    .selectDistinct({ username: user.username })
+    .from(user)
+    .innerJoin(posts, eq(posts.authorId, user.id))
+    .where(and(livePostWhere(), isNotNull(user.username)));
 }

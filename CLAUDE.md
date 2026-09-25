@@ -28,3 +28,6 @@
 - Public site lives in `src/app/(site)`; read models in `src/lib/queries/public.ts` (all filtered by `livePostWhere()`). Public pages use `export const revalidate = 300` (ISR). After any content change call `revalidatePublicSite()` (`@/lib/revalidate`), not ad-hoc `revalidatePath`.
 - Search snippets use control-char delimiters (`HIGHLIGHT_START/END`) and are rendered as React `<mark>` elements — never `dangerouslySetInnerHTML` user content.
 - OG images: `renderOgImage` in `src/lib/og.tsx` (Satori needs literal colors and vendored fonts in `assets/fonts`; read them with literal paths so file tracing bundles them).
+- Site identity: read with `getSiteSettings()` (`@/lib/settings`), never `siteConfig.name/tagline/...` directly (site.ts only supplies defaults + `url`). Client components get it via props.
+- Sessions: no Better Auth cookie cache — role changes/removals are immediate. Invites: `acceptInvite` runs sign-up inside `inviteContext` (AsyncLocalStorage) so the auth hook admits the invited email with its role; tokens are stored hashed (`@/lib/invites`).
+- Int tests must never modify pre-existing users/settings; create `int-*` rows and snapshot/restore anything shared.

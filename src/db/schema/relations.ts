@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 
-import { account, session, user } from "./auth";
+import { account, invitation, session, user } from "./auth";
 import { media, posts, postTags, tags } from "./content";
 
 export const userRelations = relations(user, ({ many }) => ({
@@ -39,6 +39,13 @@ export const postTagRelations = relations(postTags, ({ one }) => ({
 export const mediaRelations = relations(media, ({ one }) => ({
   uploadedBy: one(user, {
     fields: [media.uploadedById],
+    references: [user.id],
+  }),
+}));
+
+export const invitationRelations = relations(invitation, ({ one }) => ({
+  invitedBy: one(user, {
+    fields: [invitation.invitedById],
     references: [user.id],
   }),
 }));

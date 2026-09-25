@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/config/site";
+import { getSiteSettings } from "@/lib/settings";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,28 +24,24 @@ const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.url),
-  title: {
-    default: siteConfig.name,
-    template: `%s · ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-  applicationName: siteConfig.name,
-  openGraph: {
-    type: "website",
-    siteName: siteConfig.name,
-    locale: "en_US",
-  },
-  twitter: { card: "summary_large_image" },
-  alternates: {
-    types: {
-      "application/rss+xml": [
-        { url: "/feed.xml", title: `${siteConfig.name} RSS` },
-      ],
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteSettings();
+  return {
+    metadataBase: new URL(siteConfig.url),
+    title: { default: site.name, template: `%s · ${site.name}` },
+    description: site.description,
+    applicationName: site.name,
+    openGraph: { type: "website", siteName: site.name, locale: "en_US" },
+    twitter: { card: "summary_large_image" },
+    alternates: {
+      types: {
+        "application/rss+xml": [
+          { url: "/feed.xml", title: `${site.name} RSS` },
+        ],
+      },
     },
-  },
-};
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

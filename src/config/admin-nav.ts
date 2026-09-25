@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Settings,
   Tags,
+  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -76,6 +77,18 @@ export const adminNav: AdminNavGroup[] = [
         icon: Settings,
         permission: "settings:manage",
         keywords: ["site", "configuration"],
+      },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      {
+        title: "Profile",
+        href: "/admin/profile",
+        icon: UserRound,
+        permission: "dashboard:view",
+        keywords: ["account", "password", "avatar", "bio", "username"],
       },
     ],
   },

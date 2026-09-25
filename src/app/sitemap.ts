@@ -1,13 +1,21 @@
 import type { MetadataRoute } from "next";
 
 import { siteConfig } from "@/config/site";
-import { postPath, tagPath } from "@/lib/posts/urls";
-import { getLivePostSlugs, getLiveTags } from "@/lib/queries/public";
+import { authorPath, postPath, tagPath } from "@/lib/posts/urls";
+import {
+  getLiveAuthors,
+  getLivePostSlugs,
+  getLiveTags,
+} from "@/lib/queries/public";
 
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [posts, tags] = await Promise.all([getLivePostSlugs(), getLiveTags()]);
+  const [posts, tags, authors] = await Promise.all([
+    getLivePostSlugs(),
+    getLiveTags(),
+    getLiveAuthors(),
+  ]);
   const url = (path: string) => new URL(path, siteConfig.url).href;
   const latest = posts[0]?.updatedAt;
 
@@ -30,6 +38,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: p.updatedAt,
       changeFrequency: "monthly" as const,
       priority: 0.7,
+    })),
+    ...authors.map((a) => ({
+      url: url(authorPath(a.username!)),
+      changeFrequency: "weekly" as const,
+      priority: 0.4,
     })),
     ...tags.map((t) => ({
       url: url(tagPath(t.slug)),

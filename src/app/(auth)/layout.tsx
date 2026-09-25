@@ -1,14 +1,15 @@
 import Link from "next/link";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { siteConfig } from "@/config/site";
+import { getSiteSettings } from "@/lib/settings";
 
-export default function AuthLayout({ children }: LayoutProps<"/">) {
+export default async function AuthLayout({ children }: LayoutProps<"/">) {
+  const site = await getSiteSettings();
   return (
     <div className="relative flex flex-1 flex-col">
       <header className="flex h-14 items-center justify-between px-4">
         <Link href="/" className="font-display text-2xl tracking-tight">
-          {siteConfig.name}
+          {site.name}
         </Link>
         <ThemeToggle />
       </header>

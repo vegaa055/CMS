@@ -1,26 +1,23 @@
-import { Settings } from "lucide-react";
 import type { Metadata } from "next";
 
-import { EmptyState } from "@/components/admin/empty-state";
 import { PageHeader } from "@/components/admin/page-header";
+import { SettingsForm } from "@/components/admin/settings/settings-form";
 import { requirePermission } from "@/lib/auth/session";
+import { getSiteSettings } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   await requirePermission("settings:manage");
+  const settings = await getSiteSettings();
 
   return (
     <>
       <PageHeader
         title="Settings"
-        description="Site name, branding, and defaults."
+        description="Site name, branding, and links. Changes go live immediately."
       />
-      <EmptyState
-        icon={Settings}
-        title="Settings coming soon"
-        description="Editable site name, logo, description, and social links arrive in Phase 7."
-      />
+      <SettingsForm initial={settings} />
     </>
   );
 }

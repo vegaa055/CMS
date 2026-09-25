@@ -4,17 +4,18 @@ import Link from "next/link";
 import { FeaturedPost, PostList } from "@/components/site/post-list";
 import { TagLinks } from "@/components/site/tag-links";
 import { Button } from "@/components/ui/button";
-import { siteConfig } from "@/config/site";
 import { getLivePosts, getLiveTags } from "@/lib/queries/public";
+import { getSiteSettings } from "@/lib/settings";
 
 // Rebuilt on publish (revalidatePublicSite) and every 5 minutes so scheduled
 // posts appear on time.
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const [{ posts, total }, tags] = await Promise.all([
+  const [{ posts, total }, tags, site] = await Promise.all([
     getLivePosts({ perPage: 7 }),
     getLiveTags(),
+    getSiteSettings(),
   ]);
   const [featured, ...recent] = posts;
 
@@ -22,10 +23,10 @@ export default async function HomePage() {
     <div className="flex flex-col gap-20">
       <section className="flex max-w-3xl flex-col gap-5">
         <h1 className="font-display text-5xl leading-[1.02] tracking-tight text-balance sm:text-7xl">
-          {siteConfig.tagline}
+          {site.tagline}
         </h1>
         <p className="text-muted-foreground max-w-xl text-lg text-pretty">
-          {siteConfig.description}
+          {site.description}
         </p>
       </section>
 

@@ -11,6 +11,8 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { env } from "@/env";
 
+import { inviteContext } from "./invite-context";
+
 export const githubEnabled = Boolean(
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
 );
@@ -27,7 +29,7 @@ async function hasAdmin() {
 /**
  * Registration policy: the very first account becomes admin (bootstrap).
  * After that, sign-up (including first-time OAuth) is closed unless
- * AUTH_ALLOW_SIGNUP=true. Invites arrive in Phase 7.
+ * AUTH_ALLOW_SIGNUP=true or the user is accepting an invitation.
  */
 export async function isRegistrationOpen() {
   return env.AUTH_ALLOW_SIGNUP || !(await hasAdmin());
@@ -56,17 +58,26 @@ export const auth = betterAuth({
     additionalFields: {
       // input: false — clients can never set their own role.
       role: { type: "string", input: false, defaultValue: "author" },
-      bio: { type: "string", required: false },
+      // Profile fields are edited only through our own server actions.
+      username: { type: "string", required: false, input: false },
+      bio: { type: "string", required: false, input: false },
     },
   },
-  session: {
-    // Cache the session in a signed cookie for 5 minutes to skip DB lookups.
-    cookieCache: { enabled: true, maxAge: 5 * 60 },
-  },
+  // No session cookie cache: every check reads the DB, so role changes and
+  // removed users take effect on the very next request.
   databaseHooks: {
     user: {
       create: {
         before: async (user) => {
+          const invite = inviteContext.getStore();
+          if (invite) {
+            if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
+              throw new APIError("FORBIDDEN", {
+                message: "This invitation is for a different email address.",
+              });
+            }
+            return { data: { ...user, role: invite.role } };
+          }
           if (!(await hasAdmin())) {
             return { data: { ...user, role: "admin" } };
           }

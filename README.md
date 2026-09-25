@@ -50,7 +50,7 @@ Open http://localhost:3000.
 - [x] **Phase 4** — Posts: editor, drafts, publishing, tags
 - [x] **Phase 5** — Media library on R2
 - [x] **Phase 6** — Public site, search, SEO, RSS
-- [ ] **Phase 7** — User management and site settings
+- [x] **Phase 7** — User management and site settings
 - [ ] **Phase 8** — Tests, CI, Vercel deploy
 
 The previous PHP version of this project is preserved at the `legacy-php` git tag.
@@ -60,7 +60,14 @@ The previous PHP version of this project is preserved at the `legacy-php` git ta
 Better Auth (email/password, optional GitHub OAuth) with three roles: **admin**, **editor**, **author**.
 
 - The **first account** to register becomes the admin. After that, registration is closed
-  unless `AUTH_ALLOW_SIGNUP=true`.
+  unless `AUTH_ALLOW_SIGNUP=true` — new people join through **invites**: an admin creates a
+  one-time link (Users → Invite user) with a role; only a hash of the token is stored and it
+  expires after 7 days.
+- Admins change roles and remove users from **Users**. Sessions aren't cached in cookies, so
+  changes apply on the next request. You can't change your own role, and the last admin can't
+  be demoted or removed.
+- Everyone manages their **Profile** (name, avatar, bio, password). Setting a username publishes
+  an author page at `/authors/<username>`.
 - `/admin` is gated optimistically in `src/proxy.ts`; every page and server action
   re-checks with `requireSession()` / `requirePermission()` from `src/lib/auth/session.ts`.
 - Permissions live in `src/lib/auth/permissions.ts`.
@@ -88,6 +95,10 @@ Better Auth (email/password, optional GitHub OAuth) with three roles: **admin**,
 
 Every post gets generated Open Graph image (`opengraph-image.tsx`, fonts in `assets/fonts`),
 canonical URLs, article metadata, and schema.org `BlogPosting` JSON-LD.
+
+**Site settings** (Settings in the dashboard) — name, tagline, description, owner name, and
+social links — are stored in the `settings` table and override the defaults in
+`src/config/site.ts`.
 
 **Caching:** public pages are statically generated and refreshed two ways — immediately when
 content changes (`revalidatePublicSite()` from the admin actions) and every 5 minutes, which is
