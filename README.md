@@ -42,7 +42,7 @@ Open http://localhost:3000.
 ## Roadmap
 
 - [x] **Phase 0** — Scaffold, design tokens, dark/light theme
-- [ ] **Phase 1** — Neon + Drizzle schema, migrations, seed
+- [x] **Phase 1** — Neon + Drizzle schema, migrations, seed
 - [ ] **Phase 2** — Auth (Better Auth) and roles
 - [ ] **Phase 3** — Admin dashboard shell
 - [ ] **Phase 4** — Posts: editor, drafts, publishing, tags
@@ -52,3 +52,16 @@ Open http://localhost:3000.
 - [ ] **Phase 8** — Tests, CI, Vercel deploy
 
 The previous PHP version of this project is preserved at the `legacy-php` git tag.
+
+## Database
+
+Postgres on Neon, accessed with Drizzle over Neon's HTTP driver. Schema lives in `src/db/schema/`.
+
+| Script                | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `npm run db:generate` | Generate a SQL migration from schema changes     |
+| `npm run db:migrate`  | Apply pending migrations to `DATABASE_URL`       |
+| `npm run db:seed`     | Seed demo settings, tags, and posts (idempotent) |
+| `npm run db:studio`   | Open Drizzle Studio                              |
+
+Neon branches: `main` (production) and `dev` (local development — use its URL in `.env.local`).

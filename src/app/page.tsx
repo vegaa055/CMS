@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { siteConfig } from "@/config/site";
+import { getPublishedPosts } from "@/lib/queries/posts";
 
 const features = [
   {
@@ -29,8 +30,17 @@ const features = [
   },
 ];
 
-// Placeholder home page for Phase 0; replaced by the public post feed in Phase 6.
-export default function Home() {
+const dateFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+// Placeholder home page; replaced by the public post feed in Phase 6.
+export default async function Home() {
+  const latest = await getPublishedPosts({ limit: 3 });
+
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b">
@@ -44,7 +54,7 @@ export default function Home() {
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-16 px-4 py-20">
         <section className="flex flex-col items-start gap-6">
-          <Badge variant="secondary">Phase 0 · Scaffold</Badge>
+          <Badge variant="secondary">Phase 1 · Database</Badge>
           <h1 className="font-display text-5xl leading-[1.05] tracking-tight text-balance sm:text-7xl">
             Write, publish, and <em className="text-primary">showcase</em> your
             work.
@@ -72,6 +82,37 @@ export default function Home() {
               </CardHeader>
             </Card>
           ))}
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <h2 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+            Latest posts
+          </h2>
+          <ul className="divide-y rounded-xl border">
+            {latest.map((post) => (
+              <li key={post.id} className="flex flex-col gap-1 p-4">
+                <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                  {post.publishedAt && (
+                    <time dateTime={post.publishedAt.toISOString()}>
+                      {dateFormat.format(post.publishedAt)}
+                    </time>
+                  )}
+                  {post.author && <span>· {post.author.name}</span>}
+                  {post.postTags.map(({ tag }) => (
+                    <Badge key={tag.slug} variant="outline">
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+                <span className="font-medium">{post.title}</span>
+                {post.excerpt && (
+                  <p className="text-muted-foreground text-sm">
+                    {post.excerpt}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       </main>
 
