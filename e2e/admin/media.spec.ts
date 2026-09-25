@@ -1,10 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
+import sharp from "sharp";
 
-// 1x1 PNG
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-  "base64",
-);
+// A realistic image: a 1x1 PNG is converted to an AVIF the browser won't
+// decode, which would make the thumbnail check below meaningless.
+const imagePng = () =>
+  sharp({
+    create: { width: 400, height: 300, channels: 3, background: "#57d6c4" },
+  })
+    .png()
+    .toBuffer();
 
 /**
  * Scoped to <main>: during production streaming React briefly keeps a second
@@ -19,11 +23,17 @@ test("upload, describe, and delete an image", async ({ page }) => {
   await fileInput(page).setInputFiles({
     name,
     mimeType: "image/png",
-    buffer: PNG,
+    buffer: await imagePng(),
   });
 
   const tile = page.getByRole("button", { name });
   await expect(tile).toBeVisible();
+  // The thumbnail really renders (storage URL + next/image config are right).
+  await expect
+    .poll(() =>
+      tile.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth),
+    )
+    .toBeGreaterThan(0);
 
   await tile.click();
   const sheet = page.getByRole("dialog");

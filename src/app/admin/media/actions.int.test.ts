@@ -25,6 +25,14 @@ import {
   updateMediaAlt,
 } from "./actions";
 
+// These tests exercise the local driver's signed upload route; R2 has its own
+// live test (src/lib/storage/r2.int.test.ts). Set before any module reads env.
+const originalDriver = vi.hoisted(() => {
+  const value = process.env.STORAGE_DRIVER;
+  process.env.STORAGE_DRIVER = "local";
+  return value;
+});
+
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ getSession: vi.fn() }));
@@ -97,6 +105,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanup();
+  process.env.STORAGE_DRIVER = originalDriver;
   for (const key of createdKeys) expect(existsSync(localFile(key))).toBe(false);
 });
 
@@ -168,9 +177,12 @@ describe("media uploads (local driver)", () => {
     });
     if (!target.ok) throw new Error(target.error);
     const tampered = new URL(target.data.url, "http://localhost");
+    const sig = tampered.searchParams.get("sig")!;
+    // Always change the first character (a fixed replacement would be a
+    // no-op whenever the signature already starts with it).
     tampered.searchParams.set(
       "sig",
-      "x" + tampered.searchParams.get("sig")!.slice(1),
+      (sig[0] === "A" ? "B" : "A") + sig.slice(1),
     );
     const put = (url: URL, type: string) =>
       localUpload(
