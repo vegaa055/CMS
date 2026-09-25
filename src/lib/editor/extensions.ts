@@ -1,6 +1,8 @@
 import type { Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 
+import type { RichTextDoc } from "@/db/schema";
+
 /**
  * Schema-defining extensions shared by the editor (client), the sanitizer,
  * and the static renderer (server). Anything that changes which nodes/marks
@@ -17,3 +19,9 @@ export const contentExtensions: Extensions = [
     },
   }),
 ];
+
+/** Smallest valid document (the schema requires at least one block). */
+export const EMPTY_DOC: RichTextDoc = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};

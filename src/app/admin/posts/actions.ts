@@ -140,7 +140,8 @@ export async function savePost(raw: unknown): Promise<ActionResult<SavedPost>> {
   let content;
   try {
     content = sanitizeDoc(input.content);
-  } catch {
+  } catch (error) {
+    console.error("[savePost] rejected post content:", error);
     return fail("The post content couldn't be read. Try reloading the editor.");
   }
 

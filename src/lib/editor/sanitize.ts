@@ -30,15 +30,20 @@ function stripUnsafeLinks(node: JsonNode): JsonNode {
 
 /**
  * Validate an untrusted document against the editor schema and drop links
- * with unsafe protocols. Throws if the document is structurally invalid.
+ * with unsafe protocols. Missing required content (e.g. an empty doc) is
+ * filled in; anything else structurally invalid throws.
  */
 export function sanitizeDoc(input: unknown): RichTextDoc {
   if (JSON.stringify(input ?? null).length > MAX_DOC_BYTES) {
     throw new Error("Document is too large");
   }
-  const node = schema.nodeFromJSON(input);
+  const parsed = schema.nodeFromJSON(input);
+  if (parsed.type !== schema.topNodeType) {
+    throw new Error(`Expected a ${schema.topNodeType.name} node`);
+  }
+  const node =
+    parsed.type.createAndFill(parsed.attrs, parsed.content, parsed.marks) ??
+    parsed;
   node.check();
   return stripUnsafeLinks(node.toJSON() as JsonNode) as RichTextDoc;
 }
-
-export const EMPTY_DOC: RichTextDoc = { type: "doc", content: [] };

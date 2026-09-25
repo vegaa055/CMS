@@ -53,7 +53,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { RichTextDoc } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
-import { contentExtensions } from "@/lib/editor/extensions";
+import { contentExtensions, EMPTY_DOC } from "@/lib/editor/extensions";
 import { formatDateTime, toDateTimeLocal } from "@/lib/format";
 import { readingTime, type PostStatus } from "@/lib/posts/status";
 import { postPath, previewPath } from "@/lib/posts/urls";
@@ -111,7 +111,6 @@ type Meta = {
 };
 
 const AUTOSAVE_DELAY_MS = 1500;
-const EMPTY_DOC: RichTextDoc = { type: "doc", content: [] };
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 
