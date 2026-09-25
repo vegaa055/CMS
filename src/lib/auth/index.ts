@@ -37,7 +37,14 @@ export async function isRegistrationOpen() {
 
 export const auth = betterAuth({
   appName: siteConfig.name,
-  baseURL: env.NEXT_PUBLIC_APP_URL,
+  baseURL: siteConfig.url,
+  // Also accept the deployment's own URLs (Vercel previews).
+  trustedOrigins: [
+    siteConfig.url,
+    ...[process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+      .filter(Boolean)
+      .map((host) => `https://${host}`),
+  ],
   secret: env.BETTER_AUTH_SECRET,
   // Neon's HTTP driver has no interactive transactions.
   database: drizzleAdapter(db, { provider: "pg", schema, transaction: false }),
@@ -61,6 +68,18 @@ export const auth = betterAuth({
       // Profile fields are edited only through our own server actions.
       username: { type: "string", required: false, input: false },
       bio: { type: "string", required: false, input: false },
+    },
+  },
+  // Enabled in production. Stored in Postgres: in-memory counters are
+  // per-instance on serverless and would barely limit anything.
+  rateLimit: {
+    storage: "database",
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60, max: 3 },
+      "/change-password": { window: 60, max: 5 },
     },
   },
   // No session cookie cache: every check reads the DB, so role changes and

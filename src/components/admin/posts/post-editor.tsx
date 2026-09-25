@@ -3,7 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Typography from "@tiptap/extension-typography";
 import { CharacterCount, Placeholder } from "@tiptap/extensions";
-import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import {
+  EditorContent,
+  useEditor,
+  useEditorState,
+  type Editor,
+} from "@tiptap/react";
 import {
   AlertCircle,
   Archive,
@@ -167,6 +172,22 @@ function SaveIndicator({
   );
 }
 
+/**
+ * Mounted only once the editor exists: subscribing while it's still null
+ * left the count stuck at 0 until the first edit.
+ */
+function WordCount({ editor }: { editor: Editor }) {
+  const words = useEditorState({
+    editor,
+    selector: ({ editor: e }) => e.storage.characterCount.words(),
+  });
+  return (
+    <p className="text-muted-foreground text-xs">
+      {words} {words === 1 ? "word" : "words"} · {readingTime(words)} min read
+    </p>
+  );
+}
+
 function CoverImageField({
   value,
   onChange,
@@ -292,12 +313,6 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
       },
     },
   });
-  const words =
-    useEditorState({
-      editor,
-      selector: ({ editor: e }) => e?.storage.characterCount.words() ?? 0,
-    }) ?? 0;
-
   const updateMeta = useCallback((next: Meta) => {
     metaRef.current = next;
     setMeta(next);
@@ -605,10 +620,7 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
             {editor && <EditorToolbar editor={editor} />}
           </div>
           <EditorContent editor={editor} />
-          <p className="text-muted-foreground text-xs">
-            {words} {words === 1 ? "word" : "words"} · {readingTime(words)} min
-            read
-          </p>
+          {editor && <WordCount editor={editor} />}
         </div>
 
         {/* Sticky, independently scrolling sidebar. Cards must not shrink:

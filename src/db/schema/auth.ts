@@ -1,6 +1,8 @@
 import {
+  bigint,
   boolean,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -103,3 +105,14 @@ export const invitation = pgTable(
   },
   (t) => [index("invitation_email_idx").on(t.email)],
 );
+
+/**
+ * Better Auth rate-limit counters (storage: "database"). In-memory limits
+ * don't work on serverless, where every instance has its own memory.
+ */
+export const rateLimit = pgTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});

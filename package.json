@@ -16,7 +16,9 @@
     "db:seed": "tsx src/db/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:int": "vitest run --config vitest.int.config.mts"
+    "test:int": "vitest run --config vitest.int.config.mts",
+    "test:e2e": "playwright test --project=setup --project=public --project=admin",
+    "screenshots": "playwright test --project=screenshots"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -51,6 +53,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.20",
     "@types/node": "^24.13.6",

@@ -15,6 +15,13 @@
       "when": 1790372132740,
       "tag": "0001_users_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790374132695,
+      "tag": "0002_rate_limit",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, types, unit tests
+    runs-on: ubuntu-latest
+    env:
+      # Static checks don't need real secrets.
+      SKIP_ENV_VALIDATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  integration:
+    name: Integration + E2E (ephemeral Neon branch)
+    needs: checks
+    runs-on: ubuntu-latest
+    # Runs once the repo has NEON_API_KEY (secret) and NEON_PROJECT_ID (variable).
+    if: vars.NEON_PROJECT_ID != ''
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      STORAGE_DRIVER: local
+      BRANCH_NAME: ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Create database branch from the empty ci-base
+        id: neon
+        run: |
+          npx -y neonctl@6 branches create --project-id "$NEON_PROJECT_ID" \
+            --name "$BRANCH_NAME" --parent ci-base --output json > /dev/null
+          url=$(npx -y neonctl@6 connection-string "$BRANCH_NAME" \
+            --project-id "$NEON_PROJECT_ID" --database-name folio --pooled)
+          echo "::add-mask::$url"
+          echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
+          secret=$(openssl rand -base64 32)
+          echo "::add-mask::$secret"
+          echo "BETTER_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Migrate (from empty) and seed
+        run: |
+          npm run db:migrate
+          npm run db:seed
+
+      - name: Integration tests
+        run: npm run test:int
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+      - name: Delete database branch
+        if: always() && steps.neon.outputs.created == 'true'
+        run: |
+          npx -y neonctl@6 branches delete "$BRANCH_NAME" \
+            --project-id "$NEON_PROJECT_ID"

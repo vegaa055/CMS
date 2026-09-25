@@ -31,7 +31,8 @@ export const env = createEnv({
     R2_PUBLIC_URL: z.url().optional(),
   },
   client: {
-    NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
+    // Optional: see resolveAppUrl() in src/config/site.ts.
+    NEXT_PUBLIC_APP_URL: z.url().optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,

@@ -31,3 +31,5 @@
 - Site identity: read with `getSiteSettings()` (`@/lib/settings`), never `siteConfig.name/tagline/...` directly (site.ts only supplies defaults + `url`). Client components get it via props.
 - Sessions: no Better Auth cookie cache — role changes/removals are immediate. Invites: `acceptInvite` runs sign-up inside `inviteContext` (AsyncLocalStorage) so the auth hook admits the invited email with its role; tokens are stored hashed (`@/lib/invites`).
 - Int tests must never modify pre-existing users/settings; create `int-*` rows and snapshot/restore anything shared.
+- E2E: Playwright (`e2e/`), runs against a running dev server locally or `next start` in CI; global setup creates an `e2e-admin` with a random password. Scope locators to `main` (production streaming briefly duplicates DOM in a hidden container).
+- CI: `.github/workflows/ci.yml` forks ephemeral Neon branches from the empty `ci-base` branch (never from `main`/`dev`). Don't write to `ci-base`.

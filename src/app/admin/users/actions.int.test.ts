@@ -3,7 +3,7 @@
  * Only touches its own `int-p7-*` rows; existing users are never modified.
  * Run with `npm run test:int`.
  */
-import { eq, inArray, like } from "drizzle-orm";
+import { and, eq, inArray, like, notLike } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { acceptInvite } from "@/app/(auth)/invite/actions";
@@ -53,6 +53,12 @@ function actAs(u: { id: string; role: "admin" | "editor" | "author" }) {
   } as never);
 }
 
+const otherAdmins = await db
+  .select({ id: user.id })
+  .from(user)
+  .where(and(eq(user.role, "admin"), notLike(user.email, `${P}%`)));
+const onlyTestAdmins = otherAdmins.length === 0;
+
 let savedSettings: (typeof settings.$inferSelect)[] = [];
 
 async function cleanup() {
@@ -66,16 +72,14 @@ beforeAll(async () => {
     .from(settings)
     .where(like(settings.key, "site.%"));
   await cleanup();
-  await db
-    .insert(user)
-    .values(
-      [ADMIN, ADMIN2, AUTHOR].map((u) => ({
-        id: u.id,
-        role: u.role,
-        name: u.id,
-        email: email(u.id),
-      })),
-    );
+  await db.insert(user).values(
+    [ADMIN, ADMIN2, AUTHOR].map((u) => ({
+      id: u.id,
+      role: u.role,
+      name: u.id,
+      email: email(u.id),
+    })),
+  );
 });
 
 afterAll(async () => {
@@ -123,6 +127,25 @@ describe("role management", () => {
       await db.query.user.findFirst({ where: eq(user.id, ADMIN2.id) }),
     ).toBeUndefined();
   });
+
+  // Only meaningful when no real admins exist (CI's fresh branch); on a
+  // shared dev DB the site's own admin always counts as another admin.
+  it.runIf(onlyTestAdmins)(
+    "never demotes or removes the last admin",
+    async () => {
+      // ADMIN2 was removed above, so ADMIN is now the only admin. Act as a
+      // session whose user isn't an admin in the DB (e.g. demoted mid-session).
+      actAs({ id: `${P}-ghost`, role: "admin" });
+      expect(await changeUserRole(ADMIN.id, "author")).toMatchObject({
+        ok: false,
+        error: expect.stringMatching(/at least one admin/),
+      });
+      expect(await removeUser(ADMIN.id)).toMatchObject({
+        ok: false,
+        error: expect.stringMatching(/at least one admin/),
+      });
+    },
+  );
 });
 
 describe("invitations", () => {
