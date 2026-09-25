@@ -603,7 +603,10 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
           </p>
         </div>
 
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100svh-6rem)] lg:self-start lg:overflow-y-auto">
+        {/* Sticky, independently scrolling sidebar. Cards must not shrink:
+            they clip their overflow, so flex would squash them instead of
+            letting the column scroll. */}
+        <aside className="flex flex-col gap-4 *:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100svh-6rem)] lg:self-start lg:overflow-y-auto lg:pb-4">
           <Card>
             <CardHeader>
               <CardTitle>Publish</CardTitle>
