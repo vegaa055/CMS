@@ -149,7 +149,7 @@ describe("savePost", () => {
     if (!result.ok) return;
     expect(result.data.status).toBe("published");
     expect(result.data.publishedAt).not.toBeNull();
-    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
 
     // Tag links are replaced, not appended.
     const linked = await db

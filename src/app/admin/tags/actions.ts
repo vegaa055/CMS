@@ -15,6 +15,7 @@ import {
 } from "@/lib/action-result";
 import { can } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
+import { revalidatePublicSite } from "@/lib/revalidate";
 import { slugify } from "@/lib/slug";
 import { tagSchema } from "@/lib/validation/post";
 
@@ -55,7 +56,7 @@ function uniqueViolation(error: unknown) {
 
 function revalidateTagViews() {
   revalidatePath("/admin/tags");
-  revalidatePath("/");
+  revalidatePublicSite();
 }
 
 export async function createTag(raw: unknown): Promise<ActionResult> {

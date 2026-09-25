@@ -9,6 +9,7 @@ import {
   Archive,
   ArrowLeft,
   Check,
+  ExternalLink,
   Eye,
   ImagePlus,
   Loader2,
@@ -270,9 +271,9 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
         post?.status === "scheduled" ? toDateTimeLocal(post.publishedAt) : "",
     },
   });
-  const [seoTitle, seoDescription, title, excerpt] = useWatch({
+  const [seoTitle, seoDescription, title, excerpt, slug] = useWatch({
     control: form.control,
-    name: ["seoTitle", "seoDescription", "title", "excerpt"],
+    name: ["seoTitle", "seoDescription", "title", "excerpt", "slug"],
   });
 
   const editor = useEditor({
@@ -531,6 +532,13 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
             updatedAt={meta.updatedAt}
             error={lastError}
           />
+          {meta.status === "published" && slug && (
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={postPath(slug)} target="_blank">
+                <ExternalLink /> View
+              </Link>
+            </Button>
+          )}
           {meta.id ? (
             <Button variant="outline" size="sm" asChild>
               <Link href={previewPath(meta.id)} target="_blank">

@@ -49,7 +49,7 @@ Open http://localhost:3000.
 - [x] **Phase 3** — Admin dashboard shell
 - [x] **Phase 4** — Posts: editor, drafts, publishing, tags
 - [x] **Phase 5** — Media library on R2
-- [ ] **Phase 6** — Public site, search, SEO, RSS
+- [x] **Phase 6** — Public site, search, SEO, RSS
 - [ ] **Phase 7** — User management and site settings
 - [ ] **Phase 8** — Tests, CI, Vercel deploy
 
@@ -74,6 +74,24 @@ Better Auth (email/password, optional GitHub OAuth) with three roles: **admin**,
 - Statuses: `draft` → `scheduled` / `published` → `archived`. A scheduled post goes live when its
   publish time passes, without a cron job (see `livePostWhere` / `effectiveStatus`).
 - Authors write drafts; editors and admins publish. Drafts can be previewed at `/preview/posts/<id>`.
+
+## Public site
+
+| Route                         | What                                                    | Rendering            |
+| ----------------------------- | ------------------------------------------------------- | -------------------- |
+| `/`                           | Featured post, recent writing, topics                   | Static, ISR 5 min    |
+| `/posts`, `/posts/[slug]`     | Archive (paginated) and post pages (prev/next, related) | Post pages SSG + ISR |
+| `/tags`, `/tags/[slug]`       | Topics and per-topic archives                           | ISR / dynamic        |
+| `/search?q=`                  | Postgres full-text search with highlighted snippets     | Dynamic              |
+| `/feed.xml`                   | RSS 2.0 with full content                               | Static, ISR 5 min    |
+| `/sitemap.xml`, `/robots.txt` | Generated from live content                             | Static               |
+
+Every post gets generated Open Graph image (`opengraph-image.tsx`, fonts in `assets/fonts`),
+canonical URLs, article metadata, and schema.org `BlogPosting` JSON-LD.
+
+**Caching:** public pages are statically generated and refreshed two ways — immediately when
+content changes (`revalidatePublicSite()` from the admin actions) and every 5 minutes, which is
+also how scheduled posts go live without a cron job.
 
 ## Media storage
 

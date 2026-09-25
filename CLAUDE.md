@@ -25,3 +25,6 @@
 - Media: storage via `getStorage()` (`src/lib/storage`, drivers `local` | `r2`, chosen by `STORAGE_DRIVER`). Flow: `requestUpload` (signed URL) -> browser PUT -> `completeUpload` (server re-verifies with `stat`). Only keys matching `MEDIA_KEY_PATTERN` are accepted anywhere. No SVG uploads.
 - Tiptap/ProseMirror JSON must go through `toPlainDoc()` before being passed to a server action (null-prototype attrs are dropped by React's serializer).
 - Images in content: only `isSafeImageSrc` sources survive sanitizing. Media list paging uses a Postgres-text timestamp cursor (JS Dates lose microseconds).
+- Public site lives in `src/app/(site)`; read models in `src/lib/queries/public.ts` (all filtered by `livePostWhere()`). Public pages use `export const revalidate = 300` (ISR). After any content change call `revalidatePublicSite()` (`@/lib/revalidate`), not ad-hoc `revalidatePath`.
+- Search snippets use control-char delimiters (`HIGHLIGHT_START/END`) and are rendered as React `<mark>` elements — never `dangerouslySetInnerHTML` user content.
+- OG images: `renderOgImage` in `src/lib/og.tsx` (Satori needs literal colors and vendored fonts in `assets/fonts`; read them with literal paths so file tracing bundles them).

@@ -6,3 +6,7 @@ export function postPath(slug: string) {
 export function previewPath(id: string) {
   return `/preview/posts/${id}`;
 }
+
+export function tagPath(slug: string) {
+  return `/tags/${slug}`;
+}

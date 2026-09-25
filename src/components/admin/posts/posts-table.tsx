@@ -1,7 +1,13 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+  ExternalLink,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -26,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { formatDate, formatRelative } from "@/lib/format";
 import { POST_STATUSES, type PostStatus } from "@/lib/posts/status";
-import { previewPath } from "@/lib/posts/urls";
+import { postPath, previewPath } from "@/lib/posts/urls";
 import type { AdminPostRow } from "@/lib/queries/admin";
 
 function RowActions({ post }: { post: AdminPostRow }) {
@@ -47,11 +53,19 @@ function RowActions({ post }: { post: AdminPostRow }) {
               </Link>
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem asChild>
-            <Link href={previewPath(post.id)} target="_blank">
-              <Eye /> Preview
-            </Link>
-          </DropdownMenuItem>
+          {post.status === "published" ? (
+            <DropdownMenuItem asChild>
+              <Link href={postPath(post.slug)} target="_blank">
+                <ExternalLink /> View
+              </Link>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem asChild>
+              <Link href={previewPath(post.id)} target="_blank">
+                <Eye /> Preview
+              </Link>
+            </DropdownMenuItem>
+          )}
           {post.canDelete && (
             <>
               <DropdownMenuSeparator />

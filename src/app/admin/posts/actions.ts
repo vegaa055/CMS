@@ -16,6 +16,7 @@ import {
 } from "@/lib/action-result";
 import { can, canDeletePost, canEditPost } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
+import { revalidatePublicSite } from "@/lib/revalidate";
 import { sanitizeDoc } from "@/lib/editor/sanitize";
 import { resolvePublishing } from "@/lib/posts/publishing";
 import { effectiveStatus, type PostStatus } from "@/lib/posts/status";
@@ -220,7 +221,7 @@ export async function savePost(raw: unknown): Promise<ActionResult<SavedPost>> {
     PUBLIC_STATUSES.has(publishing.status) ||
     (previous && PUBLIC_STATUSES.has(previous.status))
   ) {
-    revalidatePath("/");
+    revalidatePublicSite();
   }
 
   return ok({
@@ -249,7 +250,7 @@ export async function deletePost(id: string): Promise<ActionResult> {
   }
 
   await db.delete(posts).where(eq(posts.id, id));
-  if (PUBLIC_STATUSES.has(post.status)) revalidatePath("/");
+  if (PUBLIC_STATUSES.has(post.status)) revalidatePublicSite();
   revalidatePath("/admin/posts");
   return ok(null);
 }

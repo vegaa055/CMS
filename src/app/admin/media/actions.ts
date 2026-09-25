@@ -10,6 +10,7 @@ import { media } from "@/db/schema";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 import { can, canManageMedia } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
+import { revalidatePublicSite } from "@/lib/revalidate";
 import {
   isMediaKey,
   isMediaMimeType,
@@ -172,6 +173,6 @@ export async function deleteMedia(id: string): Promise<ActionResult> {
     console.error("[deleteMedia] storage delete failed:", item.key, e);
   }
   revalidatePath("/admin/media");
-  revalidatePath("/");
+  revalidatePublicSite();
   return ok(null);
 }
