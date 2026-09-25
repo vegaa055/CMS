@@ -13,3 +13,7 @@
 - Neon project `folio-cms` (snowy-credit-18981856): `main` = prod, `dev` = local.
 - Auth: server `@/lib/auth` (Better Auth instance), client `@/lib/auth/client`. Guard admin pages and every server action with `requireSession()` / `requirePermission()`; `proxy.ts` is only an optimistic cookie check.
 - Roles/permissions: `src/lib/auth/permissions.ts` (`can`, `canOnResource`). Never trust client-supplied roles.
+- Admin UI: nav lives in `src/config/admin-nav.ts` (sidebar, breadcrumbs, ⌘K all read it). Pages use `PageHeader`, `EmptyState`, `DataTable` from `src/components/admin/`. Table column defs must live in client components; pass serializable rows (ISO date strings).
+- TanStack Table is pinned to v8 (v9 has a different API).
+- Drizzle gotcha: in single-table selects, raw `sql` column refs are unqualified — use joins + groupBy instead of correlated subqueries.
+- Session role is cached in a cookie for 5 min (`cookieCache`); role changes need session revocation to apply immediately.

@@ -55,7 +55,7 @@ export default async function Home() {
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-16 px-4 py-20">
         <section className="flex flex-col items-start gap-6">
-          <Badge variant="secondary">Phase 2 · Auth</Badge>
+          <Badge variant="secondary">Phase 3 · Dashboard</Badge>
           <h1 className="font-display text-5xl leading-[1.05] tracking-tight text-balance sm:text-7xl">
             Write, publish, and <em className="text-primary">showcase</em> your
             work.

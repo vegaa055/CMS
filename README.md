@@ -44,7 +44,7 @@ Open http://localhost:3000.
 - [x] **Phase 0** — Scaffold, design tokens, dark/light theme
 - [x] **Phase 1** — Neon + Drizzle schema, migrations, seed
 - [x] **Phase 2** — Auth (Better Auth) and roles
-- [ ] **Phase 3** — Admin dashboard shell
+- [x] **Phase 3** — Admin dashboard shell
 - [ ] **Phase 4** — Posts: editor, drafts, publishing, tags
 - [ ] **Phase 5** — Media library on R2
 - [ ] **Phase 6** — Public site, search, SEO, RSS

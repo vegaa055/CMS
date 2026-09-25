@@ -1,36 +1,34 @@
-import Link from "next/link";
+import { cookies } from "next/headers";
 
-import { SignOutButton } from "@/components/auth/sign-out-button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Badge } from "@/components/ui/badge";
-import { siteConfig } from "@/config/site";
+import { AdminHeader } from "@/components/admin/admin-header";
+import { AppSidebar } from "@/components/admin/app-sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { requirePermission } from "@/lib/auth/session";
-import { ROLE_LABELS } from "@/lib/auth/permissions";
 
-// Minimal admin frame for Phase 2; the full dashboard shell arrives in Phase 3.
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const { user } = await requirePermission("dashboard:view");
+  // Persisted by the sidebar component so the collapsed state survives reloads.
+  const sidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false";
+
+  const navUser = {
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    role: user.role,
+  };
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="border-b">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
-          <Link href="/admin" className="font-display text-2xl tracking-tight">
-            {siteConfig.name}
-          </Link>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground hidden text-sm sm:inline">
-              {user.name}
-            </span>
-            <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
-            <ThemeToggle />
-            <SignOutButton />
+    <TooltipProvider delayDuration={0}>
+      <SidebarProvider defaultOpen={sidebarOpen}>
+        <AppSidebar user={navUser} />
+        <SidebarInset>
+          <AdminHeader role={user.role} />
+          <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
+            {children}
           </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
-        {children}
-      </main>
-    </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }
