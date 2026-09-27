@@ -26,7 +26,6 @@ let fontData: Promise<[Buffer, Buffer]> | undefined;
 function loadFonts() {
   fontData ??= Promise.all([
     readFile(join(process.cwd(), "assets/fonts/InstrumentSerif-Regular.woff")),
-    readFile(join(process.cwd(), "assets/fonts/UbuntuMono-Regular.ttf")),
     readFile(join(process.cwd(), "assets/fonts/Geist-Regular.ttf")),
   ]);
   return fontData;
@@ -79,7 +78,7 @@ export async function renderOgImage({
       >
         <span
           style={{
-            fontFamily: "UbuntuMono Serif",
+            fontFamily: "Instrument Serif",
             fontSize: 44,
             color: colors.foreground,
           }}
@@ -104,7 +103,7 @@ export async function renderOgImage({
       <div
         style={{
           display: "flex",
-          fontFamily: "UbuntuMono Serif",
+          fontFamily: "Instrument Serif",
           fontSize: titleSize(title),
           lineHeight: 1.05,
           letterSpacing: "-0.02em",
@@ -134,7 +133,7 @@ export async function renderOgImage({
       ...ogSize,
       fonts: [
         { name: "Geist", data: sans, style: "normal", weight: 400 },
-        { name: "UbuntuMono Serif", data: serif, style: "normal", weight: 400 },
+        { name: "Instrument Serif", data: serif, style: "normal", weight: 400 },
       ],
     },
   );
