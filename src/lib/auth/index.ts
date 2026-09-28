@@ -156,12 +156,12 @@ export const auth = betterAuth({
         }
       },
       afterDelete: async (user) => {
-        // Per-recipient email limits (app:email:<kind>:<user id>).
+        // Their per-person limits (app:email:<kind>:<id>, app:like:<id>).
         await db
           .delete(schema.rateLimit)
           .where(
             and(
-              like(schema.rateLimit.key, "app:email:%"),
+              like(schema.rateLimit.key, "app:%"),
               like(schema.rateLimit.key, `%:${user.id}`),
             ),
           );

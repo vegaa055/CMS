@@ -21,6 +21,7 @@ import {
   STAFF_ROLES,
 } from "@/lib/auth/permissions";
 import type { AppSession } from "@/lib/auth/session";
+import { getLikeCounts, getMostLiked } from "@/lib/queries/likes";
 import { effectiveStatus, type PostStatus } from "@/lib/posts/status";
 
 /** Stored status, with past-due scheduled posts counted as published. */
@@ -103,12 +104,14 @@ export async function getAdminPosts(session: AppSession) {
       postTags: { with: { tag: { columns: { name: true } } } },
     },
   });
+  const likes = await getLikeCounts(rows.map((r) => r.id));
   return rows.map(({ postTags: pt, author, authorId, ...p }) => {
     const status = effectiveStatus(p.status, p.publishedAt);
     const ref = { authorId, status };
     return {
       ...p,
       status,
+      likes: likes.get(p.id) ?? 0,
       canEdit: canEditPost(session.user, ref),
       canDelete: canDeletePost(session.user, ref),
       author: author?.name ?? null,
@@ -287,3 +290,8 @@ export async function getPendingInvites() {
 export type PendingInvite = Awaited<
   ReturnType<typeof getPendingInvites>
 >[number];
+
+/** The dashboard's "Most liked" list, scoped like its other numbers. */
+export function getDashboardMostLiked(session: AppSession) {
+  return getMostLiked({ scope: postScope(session) });
+}

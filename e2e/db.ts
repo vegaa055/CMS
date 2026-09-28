@@ -54,9 +54,9 @@ export async function cleanupE2E() {
   await db`delete from tags where slug like 'e2e-%'`;
   await db`delete from invitation where email like 'e2e-%@folio.local'`;
   await db`delete from "user" where email like 'e2e-%@folio.local'`;
-  // Per-recipient email limits (app:email:<kind>:<user id>) of deleted users,
-  // including readers the tests removed through the UI.
-  await db`delete from rate_limit where key like 'app:email:%' and split_part(key, ':', 4) not in (select id from "user")`;
+  // Per-person limits (app:email:<kind>:<user id>, app:like:<user id>) of
+  // deleted users, including readers the tests removed through the UI.
+  await db`delete from rate_limit where (key like 'app:email:%' or key like 'app:like:%') and split_part(key, ':', -1) not in (select id from "user")`;
   // Emails to e2e addresses land in the local outbox (see src/lib/email).
   const outbox = path.join(process.cwd(), ".emails");
   for (const name of await readdir(outbox).catch(() => [])) {

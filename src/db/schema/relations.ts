@@ -2,12 +2,14 @@ import { relations } from "drizzle-orm";
 
 import { account, invitation, session, user } from "./auth";
 import { media, posts, postTags, tags } from "./content";
+import { postLikes } from "./engagement";
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   posts: many(posts),
   media: many(media),
+  likes: many(postLikes),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -25,6 +27,7 @@ export const postRelations = relations(posts, ({ one, many }) => ({
     references: [media.id],
   }),
   postTags: many(postTags),
+  likes: many(postLikes),
 }));
 
 export const tagRelations = relations(tags, ({ many }) => ({
@@ -48,4 +51,9 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
     fields: [invitation.invitedById],
     references: [user.id],
   }),
+}));
+
+export const postLikeRelations = relations(postLikes, ({ one }) => ({
+  post: one(posts, { fields: [postLikes.postId], references: [posts.id] }),
+  user: one(user, { fields: [postLikes.userId], references: [user.id] }),
 }));

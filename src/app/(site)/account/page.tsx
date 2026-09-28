@@ -1,11 +1,4 @@
-import {
-  CircleCheck,
-  LayoutDashboard,
-  LinkIcon,
-  MailCheck,
-} from "lucide-react";
-import type { Metadata } from "next";
-import Link from "next/link";
+import { CircleCheck, LinkIcon, MailCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { DeleteAccountCard } from "@/components/account/delete-account-card";
@@ -13,17 +6,10 @@ import { EmailCard } from "@/components/account/email-card";
 import { NameCard } from "@/components/account/name-card";
 import { PasswordCard } from "@/components/account/password-card";
 import { SessionsCard } from "@/components/account/sessions-card";
-import { UserAvatar } from "@/components/admin/user-avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { isStaff, ROLE_LABELS } from "@/lib/auth/permissions";
+import { isStaff } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
 import { countOtherSessions, getSignInMethods } from "@/lib/queries/account";
-
-export const metadata: Metadata = {
-  title: "Your account",
-  robots: { index: false, follow: false },
-};
 
 /** Where email-change links land (see `emailChangeUrl`). */
 function EmailChangeNotice({
@@ -82,28 +68,7 @@ export default async function AccountPage({
   const staff = isStaff(user.role);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 pb-16">
-      <header className="flex items-center gap-4">
-        <UserAvatar
-          name={user.name}
-          image={user.image}
-          className="size-16 text-xl"
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h1 className="font-display text-4xl tracking-tight">Your account</h1>
-          <p className="text-muted-foreground truncate text-sm">
-            {user.name} · {staff ? ROLE_LABELS[user.role] : "Reader"}
-          </p>
-        </div>
-        {staff && (
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/admin">
-              <LayoutDashboard /> Dashboard
-            </Link>
-          </Button>
-        )}
-      </header>
-
+    <>
       <EmailChangeNotice
         step={
           typeof params.emailChange === "string"
@@ -126,6 +91,6 @@ export default async function AccountPage({
       />
       <SessionsCard otherSessions={otherSessions} />
       <DeleteAccountCard hasPassword={methods.hasPassword} staff={staff} />
-    </div>
+    </>
   );
 }

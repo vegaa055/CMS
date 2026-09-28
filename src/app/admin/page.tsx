@@ -3,6 +3,7 @@ import {
   CalendarClock,
   FileCheck2,
   FilePen,
+  Heart,
   ImageIcon,
   Tags,
   UsersRound,
@@ -26,7 +27,12 @@ import {
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/session";
 import { formatRelative } from "@/lib/format";
-import { getDashboardStats, getRecentPosts } from "@/lib/queries/admin";
+import { postPath } from "@/lib/posts/urls";
+import {
+  getDashboardMostLiked,
+  getDashboardStats,
+  getRecentPosts,
+} from "@/lib/queries/admin";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -61,10 +67,12 @@ function StatCard({
 export default async function DashboardPage() {
   const session = await requirePermission("dashboard:view");
   const { user } = session;
-  const [stats, recent] = await Promise.all([
+  const [stats, recent, mostLiked] = await Promise.all([
     getDashboardStats(session),
     getRecentPosts(session),
+    getDashboardMostLiked(session),
   ]);
+  const sitewide = can(user.role, "post:update:any");
 
   const statCards = [
     {
@@ -119,55 +127,98 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recently updated</CardTitle>
-          <CardDescription>
-            {can(user.role, "post:update:any")
-              ? "Latest changes across the site."
-              : "Your latest changes."}
-          </CardDescription>
-          <CardAction>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/admin/posts">
-                All posts <ArrowUpRight />
-              </Link>
-            </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          {recent.length ? (
-            <ul className="-mx-2 divide-y">
-              {recent.map((post) => (
-                <li
-                  key={post.id}
-                  className="flex items-center justify-between gap-4 px-2 py-3"
-                >
-                  <div className="flex min-w-0 flex-col">
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Recently updated</CardTitle>
+            <CardDescription>
+              {sitewide
+                ? "Latest changes across the site."
+                : "Your latest changes."}
+            </CardDescription>
+            <CardAction>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/admin/posts">
+                  All posts <ArrowUpRight />
+                </Link>
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            {recent.length ? (
+              <ul className="-mx-2 divide-y">
+                {recent.map((post) => (
+                  <li
+                    key={post.id}
+                    className="flex items-center justify-between gap-4 px-2 py-3"
+                  >
+                    <div className="flex min-w-0 flex-col">
+                      <Link
+                        href={`/admin/posts/${post.id}`}
+                        className="truncate font-medium hover:underline"
+                      >
+                        {post.title || "Untitled"}
+                      </Link>
+                      <span className="text-muted-foreground text-xs">
+                        {post.author?.name ?? "Unknown author"} · updated{" "}
+                        {formatRelative(post.updatedAt)}
+                      </span>
+                    </div>
+                    <StatusBadge status={post.status} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                icon={FilePen}
+                title="No posts yet"
+                description="Posts you write will show up here."
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Most liked</CardTitle>
+            <CardDescription>
+              {sitewide
+                ? "Readers' favorites across the site."
+                : "Your posts readers like most."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {mostLiked.length ? (
+              <ol className="-mx-2 divide-y">
+                {mostLiked.map((post) => (
+                  <li
+                    key={post.id}
+                    className="flex items-center justify-between gap-4 px-2 py-3"
+                  >
                     <Link
-                      href={`/admin/posts/${post.id}`}
+                      href={postPath(post.slug)}
                       className="truncate font-medium hover:underline"
                     >
-                      {post.title || "Untitled"}
+                      {post.title}
                     </Link>
-                    <span className="text-muted-foreground text-xs">
-                      {post.author?.name ?? "Unknown author"} · updated{" "}
-                      {formatRelative(post.updatedAt)}
+                    <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-sm tabular-nums">
+                      <Heart className="size-3.5" aria-hidden />
+                      <span className="sr-only">Likes:</span>
+                      {post.likes}
                     </span>
-                  </div>
-                  <StatusBadge status={post.status} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState
-              icon={FilePen}
-              title="No posts yet"
-              description="Posts you write will show up here."
-            />
-          )}
-        </CardContent>
-      </Card>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <EmptyState
+                icon={Heart}
+                title="No likes yet"
+                description="When readers like posts, the favorites show up here."
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </>
   );
 }

@@ -269,15 +269,21 @@ describe("deleting an account", () => {
     ).toBeDefined();
   });
 
-  it("removes the user, their sessions, and their email limits", async () => {
+  it("removes the user, their sessions, and their limits", async () => {
     await createUser("leaver");
     const headers = await signInAs("leaver");
-    await db.insert(rateLimit).values({
-      id: crypto.randomUUID(),
-      key: `app:email:verify:${idOf("leaver")}`,
-      count: 1,
-      lastRequest: Date.now(),
-    });
+    const keys = [
+      `app:email:verify:${idOf("leaver")}`,
+      `app:like:${idOf("leaver")}`,
+    ];
+    await db.insert(rateLimit).values(
+      keys.map((key) => ({
+        id: crypto.randomUUID(),
+        key,
+        count: 1,
+        lastRequest: Date.now(),
+      })),
+    );
     await auth.api.deleteUser({ body: { password: PASSWORD }, headers });
     expect(
       await db.query.user.findFirst({ where: eq(user.id, idOf("leaver")) }),
@@ -289,10 +295,7 @@ describe("deleting an account", () => {
         .where(eq(session.userId, idOf("leaver"))),
     ).toEqual([]);
     expect(
-      await db
-        .select()
-        .from(rateLimit)
-        .where(eq(rateLimit.key, `app:email:verify:${idOf("leaver")}`)),
+      await db.select().from(rateLimit).where(inArray(rateLimit.key, keys)),
     ).toEqual([]);
   });
 

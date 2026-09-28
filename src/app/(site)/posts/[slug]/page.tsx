@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { PostArticle } from "@/components/content/post-article";
+import { LikeButton } from "@/components/site/like-button";
 import { PostListItem } from "@/components/site/post-list";
 import { siteConfig } from "@/config/site";
 import { postPath } from "@/lib/posts/urls";
@@ -109,6 +110,9 @@ export default async function PostPage({ params }: PageProps<"/posts/[slug]">) {
     <div className="flex flex-col gap-16">
       <JsonLd post={post} siteName={site.name} />
       <PostArticle post={post} linkTags />
+      <div className="mx-auto -mt-8 flex w-full max-w-2xl items-center gap-3">
+        <LikeButton postId={post.id} path={postPath(post.slug)} />
+      </div>
 
       {(adjacent.older || adjacent.newer) && (
         <nav

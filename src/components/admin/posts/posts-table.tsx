@@ -158,6 +158,15 @@ const columns: ColumnDef<AdminPostRow>[] = [
     ),
   },
   {
+    accessorKey: "likes",
+    header: ({ column }) => <SortableHeader column={column} title="Likes" />,
+    cell: ({ row }) => (
+      <span className="text-muted-foreground tabular-nums">
+        {row.original.likes}
+      </span>
+    ),
+  },
+  {
     accessorKey: "updatedAt",
     header: ({ column }) => <SortableHeader column={column} title="Updated" />,
     cell: ({ row }) => (

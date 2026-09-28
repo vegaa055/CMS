@@ -28,8 +28,8 @@ export default defineConfig({
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "public",
-      // Signed-out visitors (the account spec signs up its own reader).
-      testMatch: /(public|account)\.spec\.ts/,
+      // Signed-out visitors (these specs sign up or sign in their own readers).
+      testMatch: /(public|account|likes)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {

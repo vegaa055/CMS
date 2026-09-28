@@ -48,6 +48,8 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
 - Postgres full-text search with ranked, highlighted results
 - Generated Open Graph images, JSON-LD, sitemap, robots.txt, and a full-content RSS feed
 - Static generation with incremental revalidation; dark and light themes
+- Likes: signed-in readers like posts (private; only totals are public) and find them again
+  under **Account → Liked stories**; the dashboard shows likes per post and the most liked
 
 **Team**
 
@@ -154,11 +156,11 @@ local disk storage until you
 
 ## Testing
 
-| Layer       | Tool       | What it covers                                                                                                                                                                                                                                                        |
-| ----------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                                                                                  |
-| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, email flows, account self-service, settings, public read models), plus a sweep proving readers are refused by every dashboard action                     |
-| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, a reader's whole journey (sign-up with the bot check and breach check → confirm email → account → reset password → delete), public pages, headers |
+| Layer       | Tool       | What it covers                                                                                                                                                                                                                                                                                                                            |
+| ----------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                                                                                                                                                      |
+| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, email flows, account self-service, likes, settings, public read models), plus a sweep proving readers are refused by every dashboard action                                                                                  |
+| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, a reader's whole journey (sign-up with the bot check and breach check → confirm email → account → reset password → delete), liking a post (signed-out prompt → sign in → like → Liked stories), public pages, headers |
 
 Integration and e2e tests create their own `int-*` / `e2e-*` data and remove it afterwards, so
 they can run against a development database.
@@ -222,6 +224,15 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
 - Sessions aren't cached in cookies, so role changes and removals apply on the next request.
   You can't change your own role, and the last admin can't be demoted or removed.
 - Sign-in, sign-up, and password changes are rate-limited in Postgres (serverless-safe).
+
+### Likes
+
+- One like per account per post (`post_likes`), removed with the post or the account. Anyone
+  signed in can like; the total is public, but who liked what never leaves the server.
+- Post pages stay static: the heart loads `GET /api/posts/[id]/likes` in the browser and updates
+  instantly, and liking never regenerates cached pages. Each person gets 30 likes a minute.
+- **Account → Liked stories** lists your likes, newest first; the dashboard has a Likes column
+  in Posts and a **Most liked** card (authors see their own posts).
 
 ### Content
 
