@@ -18,6 +18,8 @@ export type AdminNavItem = {
   permission: Permission;
   /** Extra words the command palette should match on. */
   keywords?: string[];
+  /** Named sub-routes, e.g. { readers: "Readers" } for /admin/users/readers. */
+  subpages?: Record<string, string>;
 };
 
 export type AdminNavGroup = { label: string; items: AdminNavItem[] };
@@ -69,7 +71,8 @@ export const adminNav: AdminNavGroup[] = [
         href: "/admin/users",
         icon: Users,
         permission: "user:manage",
-        keywords: ["team", "roles", "people"],
+        keywords: ["team", "roles", "people", "readers", "subscribers"],
+        subpages: { readers: "Readers" },
       },
       {
         title: "Settings",

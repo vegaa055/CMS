@@ -3,10 +3,11 @@ import { like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { db } from "@/db";
-import { posts, postTags, tags } from "@/db/schema";
+import { posts, postTags, tags, user } from "@/db/schema";
 
 import {
   getAdjacentPosts,
+  getAuthorByUsername,
   getLivePostBySlug,
   getLivePosts,
   getLiveTags,
@@ -187,5 +188,50 @@ describe("public queries", () => {
     expect(await searchPosts("   ")).toEqual([]);
     // websearch syntax must never throw on odd input.
     expect(Array.isArray(await searchPosts('"unclosed OR -'))).toBe(true);
+  });
+});
+
+describe("author pages", () => {
+  const A = "int-authorpage";
+  const people = [
+    { id: `${A}-staff`, role: "author" as const },
+    { id: `${A}-reader`, role: "reader" as const },
+    // An author later demoted to reader, whose post is still live.
+    { id: `${A}-former`, role: "reader" as const },
+  ];
+
+  beforeAll(async () => {
+    await db.delete(user).where(like(user.email, `${A}-%`));
+    await db.insert(user).values(
+      people.map((p) => ({
+        ...p,
+        name: p.id,
+        username: p.id,
+        email: `${p.id}@folio.local`,
+      })),
+    );
+    await db.insert(posts).values({
+      title: `${A}-post`,
+      slug: `${A}-post`,
+      content: doc,
+      status: "published",
+      publishedAt: new Date(jan(2)),
+      authorId: `${A}-former`,
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(posts).where(like(posts.slug, `${A}-%`));
+    await db.delete(user).where(like(user.email, `${A}-%`));
+  });
+
+  it("exist for the team and for live bylines, never for other readers", async () => {
+    expect(await getAuthorByUsername(`${A}-staff`)).toMatchObject({
+      username: `${A}-staff`,
+    });
+    expect(await getAuthorByUsername(`${A}-reader`)).toBeUndefined();
+    expect(await getAuthorByUsername(`${A}-former`)).toMatchObject({
+      name: `${A}-former`,
+    });
   });
 });

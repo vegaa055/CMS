@@ -6,7 +6,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { siteConfig } from "@/config/site";
 import { db } from "@/db";
-import { invitation } from "@/db/schema";
+import { invitation, user } from "@/db/schema";
 
 export const INVITE_TTL_DAYS = 7;
 
@@ -36,4 +36,14 @@ export async function findValidInvite(token: string) {
       ),
     );
   return row;
+}
+
+/** Whether an account already uses this email (invite emails are lowercase). */
+export async function accountExists(email: string) {
+  const [row] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, email.toLowerCase()))
+    .limit(1);
+  return Boolean(row);
 }

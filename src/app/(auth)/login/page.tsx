@@ -3,24 +3,25 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/login-form";
-import { githubEnabled, isRegistrationOpen } from "@/lib/auth";
+import { githubEnabled, registrationMode } from "@/lib/auth";
+import { landingPath, nextParam } from "@/lib/auth/landing";
 import { getSession } from "@/lib/auth/session";
-import { safeRedirectPath } from "@/lib/safe-redirect";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const next = safeRedirectPath((await searchParams).next);
-  if (await getSession()) redirect(next);
+  const next = nextParam((await searchParams).next);
+  const session = await getSession();
+  if (session) redirect(landingPath(session.user.role, next));
 
-  const registrationOpen = await isRegistrationOpen();
+  const registrationOpen = (await registrationMode()) !== "closed";
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <h1 className="font-display text-4xl tracking-tight">Welcome back</h1>
         <p className="text-muted-foreground text-sm">
-          Sign in to manage your content.
+          Sign in to your account.
         </p>
       </div>
       <LoginForm next={next} githubEnabled={githubEnabled} />
@@ -28,7 +29,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <p className="text-muted-foreground text-center text-sm">
           No account?{" "}
           <Link
-            href="/register"
+            href={
+              next ? `/register?next=${encodeURIComponent(next)}` : "/register"
+            }
             className="text-foreground underline-offset-4 hover:underline"
           >
             Create one

@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 import { GitHubButton } from "@/components/auth/github-button";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { signUp } from "@/lib/auth/client";
+import { continueUrl, verifyEmailUrl } from "@/lib/auth/landing";
 
 const schema = z
   .object({
@@ -58,7 +60,14 @@ const fields: {
   },
 ];
 
-export function RegisterForm({ githubEnabled }: { githubEnabled: boolean }) {
+export function RegisterForm({
+  next,
+  githubEnabled,
+}: {
+  /** Page to return to after signing up (already validated). */
+  next?: string;
+  githubEnabled: boolean;
+}) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const form = useForm<Values>({
@@ -68,12 +77,19 @@ export function RegisterForm({ githubEnabled }: { githubEnabled: boolean }) {
 
   async function onSubmit({ name, email, password }: Values) {
     setFormError(null);
-    const { error } = await signUp.email({ name, email, password });
+    const { error } = await signUp.email({
+      name,
+      email,
+      password,
+      // Where the link in the confirmation email lands.
+      callbackURL: verifyEmailUrl(next),
+    });
     if (error) {
       setFormError(error.message ?? "Could not create account");
       return;
     }
-    router.replace("/admin");
+    toast.success("Account created. Check your inbox to confirm your email.");
+    router.replace(continueUrl(next));
     router.refresh();
   }
 
@@ -82,7 +98,7 @@ export function RegisterForm({ githubEnabled }: { githubEnabled: boolean }) {
       <FieldGroup>
         {githubEnabled && (
           <>
-            <GitHubButton callbackURL="/admin" />
+            <GitHubButton callbackURL={continueUrl(next)} />
             <FieldSeparator>or</FieldSeparator>
           </>
         )}

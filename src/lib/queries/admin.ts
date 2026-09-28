@@ -1,10 +1,25 @@
 import "server-only";
 
-import { count, desc, eq, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 import { invitation, media, posts, postTags, tags, user } from "@/db/schema";
-import { can, canDeletePost, canEditPost } from "@/lib/auth/permissions";
+import {
+  can,
+  canDeletePost,
+  canEditPost,
+  STAFF_ROLES,
+} from "@/lib/auth/permissions";
 import type { AppSession } from "@/lib/auth/session";
 import { effectiveStatus, type PostStatus } from "@/lib/posts/status";
 
@@ -23,7 +38,7 @@ function postScope(session: AppSession) {
 
 export async function getDashboardStats(session: AppSession) {
   const scope = postScope(session);
-  const [statusCounts, [mediaCount], [tagCount], [userCount]] =
+  const [statusCounts, [mediaCount], [tagCount], [readerCount]] =
     await Promise.all([
       db
         .select({ status: effectiveStatusSql, count: count() })
@@ -32,7 +47,7 @@ export async function getDashboardStats(session: AppSession) {
         .groupBy(effectiveStatusSql),
       db.select({ count: count() }).from(media),
       db.select({ count: count() }).from(tags),
-      db.select({ count: count() }).from(user),
+      db.select({ count: count() }).from(user).where(eq(user.role, "reader")),
     ]);
 
   const byStatus = Object.fromEntries(
@@ -45,7 +60,7 @@ export async function getDashboardStats(session: AppSession) {
     scheduled: byStatus.scheduled ?? 0,
     media: mediaCount?.count ?? 0,
     tags: tagCount?.count ?? 0,
-    users: userCount?.count ?? 0,
+    readers: readerCount?.count ?? 0,
   };
 }
 
@@ -124,7 +139,8 @@ export async function getAdminTags() {
 
 export type AdminTagRow = Awaited<ReturnType<typeof getAdminTags>>[number];
 
-export async function getAdminUsers() {
+/** Team members (everyone but readers), oldest first. */
+export async function getTeamMembers() {
   const rows = await db
     .select({
       id: user.id,
@@ -138,12 +154,80 @@ export async function getAdminUsers() {
     })
     .from(user)
     .leftJoin(posts, eq(posts.authorId, user.id))
+    .where(inArray(user.role, STAFF_ROLES))
     .groupBy(user.id)
     .orderBy(user.createdAt);
   return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
 }
 
-export type AdminUserRow = Awaited<ReturnType<typeof getAdminUsers>>[number];
+export type TeamMemberRow = Awaited<ReturnType<typeof getTeamMembers>>[number];
+
+/** Team and reader totals for the Users tabs. */
+export async function getUserCounts() {
+  const rows = await db
+    .select({ role: user.role, count: count() })
+    .from(user)
+    .groupBy(user.role);
+  let team = 0;
+  let readers = 0;
+  for (const row of rows) {
+    if (row.role === "reader") readers += row.count;
+    else team += row.count;
+  }
+  return { team, readers };
+}
+
+export const READERS_PER_PAGE = 25;
+
+/** LIKE pattern matching `text` anywhere, with wildcards in it escaped. */
+function containsPattern(text: string) {
+  return `%${text.replace(/[\\%_]/g, "\\$&")}%`;
+}
+
+/** One page of readers, newest first, optionally filtered by name or email. */
+export async function getReaders({
+  page,
+  query,
+}: {
+  page: number;
+  query?: string;
+}) {
+  const where = and(
+    eq(user.role, "reader"),
+    query
+      ? or(
+          ilike(user.name, containsPattern(query)),
+          ilike(user.email, containsPattern(query)),
+        )
+      : undefined,
+  );
+  const [rows, [total]] = await Promise.all([
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+      })
+      .from(user)
+      .where(where)
+      .orderBy(desc(user.createdAt), desc(user.id))
+      .limit(READERS_PER_PAGE)
+      .offset((page - 1) * READERS_PER_PAGE),
+    db.select({ count: count() }).from(user).where(where),
+  ]);
+  const totalCount = total?.count ?? 0;
+  return {
+    rows: rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    total: totalCount,
+    pageCount: Math.max(1, Math.ceil(totalCount / READERS_PER_PAGE)),
+  };
+}
+
+export type ReaderRow = Awaited<ReturnType<typeof getReaders>>["rows"][number];
 
 /** Full post for the editor, or undefined. Callers must authorize. */
 export async function getPostForEdit(id: string) {

@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { can, canDeletePost, canEditPost, canPreviewPost } from "./permissions";
+import {
+  can,
+  canDeletePost,
+  canEditPost,
+  canManageMedia,
+  canPreviewPost,
+  isRole,
+  isStaff,
+  PERMISSION_NAMES,
+  ROLE_LABELS,
+  ROLES,
+  STAFF_ROLES,
+} from "./permissions";
 
 const admin = { id: "a", role: "admin" as const };
 const editor = { id: "e", role: "editor" as const };
@@ -40,5 +52,36 @@ describe("post ownership rules", () => {
       expect(canEditPost(user, ownLive)).toBe(true);
       expect(canDeletePost(user, ownLive)).toBe(true);
     }
+  });
+});
+
+describe("readers", () => {
+  const reader = { id: "r", role: "reader" as const };
+
+  it("hold no dashboard permission at all", () => {
+    for (const permission of PERMISSION_NAMES) {
+      expect(can("reader", permission)).toBe(false);
+    }
+  });
+
+  it("are the only role that isn't staff", () => {
+    expect(isStaff("reader")).toBe(false);
+    expect(isStaff(null)).toBe(false);
+    for (const role of STAFF_ROLES) expect(isStaff(role)).toBe(true);
+    expect(ROLES.filter((r) => !isStaff(r))).toEqual(["reader"]);
+  });
+
+  it("can't touch posts or media, even ones attributed to them", () => {
+    const own = { authorId: "r", status: "draft" };
+    expect(canEditPost(reader, own)).toBe(false);
+    expect(canDeletePost(reader, own)).toBe(false);
+    expect(canPreviewPost(reader, own)).toBe(false);
+    expect(canManageMedia(reader, { uploadedById: "r" })).toBe(false);
+  });
+
+  it("is a known role with a label", () => {
+    expect(isRole("reader")).toBe(true);
+    expect(isRole("superuser")).toBe(false);
+    for (const role of ROLES) expect(ROLE_LABELS[role]).toBeTruthy();
   });
 });

@@ -28,9 +28,11 @@ function useBreadcrumbs() {
   if (section && section.href !== "/admin") {
     crumbs.push({ label: section.title, href: section.href });
     const rest = pathname.slice(section.href.length).split("/").filter(Boolean);
-    // Sub-pages (e.g. /admin/posts/new) get a title-cased trailing crumb.
+    // Sub-pages get a trailing crumb: named ones (e.g. /admin/users/readers)
+    // use their title; otherwise /new is "New" and an id is "Edit".
     if (rest[0]) {
-      const label = rest[0] === "new" ? "New" : "Edit";
+      const label =
+        section.subpages?.[rest[0]] ?? (rest[0] === "new" ? "New" : "Edit");
       crumbs.push({ label, href: pathname });
     }
   }

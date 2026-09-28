@@ -7,7 +7,12 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { createInvite, revokeInvite } from "@/app/admin/users/actions";
+import {
+  changeUserRole,
+  createInvite,
+  revokeInvite,
+  type InviteResult,
+} from "@/app/admin/users/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
@@ -40,13 +46,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ROLE_LABELS, ROLES } from "@/lib/auth/permissions";
+import { Switch } from "@/components/ui/switch";
+import { ROLE_LABELS, STAFF_ROLES } from "@/lib/auth/permissions";
 import { formatDateTime } from "@/lib/format";
 import type { PendingInvite } from "@/lib/queries/admin";
 
 const schema = z.object({
   email: z.email("Enter a valid email"),
-  role: z.enum(ROLES),
+  role: z.enum(STAFF_ROLES),
+  sendEmail: z.boolean(),
 });
 type Values = z.infer<typeof schema>;
 
@@ -75,20 +83,66 @@ function CopyLink({ url }: { url: string }) {
   );
 }
 
+/** Shown instead of an invite link when the email belongs to a reader. */
+function PromoteReader({
+  reader,
+  email,
+  onDone,
+}: {
+  reader: Extract<InviteResult, { kind: "existing-reader" }>;
+  email: string;
+  onDone: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const role = ROLE_LABELS[reader.role].toLowerCase();
+
+  function promote() {
+    startTransition(async () => {
+      const result = await changeUserRole(reader.userId, reader.role);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`${reader.name} is now ${role}`);
+      onDone();
+    });
+  }
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{reader.name} already has an account</DialogTitle>
+        <DialogDescription>
+          {email} signed up as a reader. Make them{" "}
+          {/^[aeiou]/.test(role) ? "an" : "a"} {role} instead? They keep their
+          account and get dashboard access right away.
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
+        <Button variant="outline" onClick={onDone} disabled={pending}>
+          Cancel
+        </Button>
+        <Button onClick={promote} disabled={pending}>
+          {pending && <Loader2 className="animate-spin" />}
+          Make {role}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
 export function InviteButton() {
   const [open, setOpen] = useState(false);
-  const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(
-    null,
-  );
+  const [outcome, setOutcome] = useState<InviteResult | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", role: "author" },
+    defaultValues: { email: "", role: "author", sendEmail: true },
   });
 
   function onOpenChange(next: boolean) {
     setOpen(next);
     if (!next) {
-      setLink(null);
+      setOutcome(null);
       form.reset();
     }
   }
@@ -101,7 +155,7 @@ export function InviteButton() {
       toast.error(result.error);
       return;
     }
-    setLink(result.data);
+    setOutcome(result.data);
   }
 
   return (
@@ -111,27 +165,39 @@ export function InviteButton() {
       </Button>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
-          {link ? (
+          {outcome?.kind === "invite" ? (
             <>
               <DialogHeader>
-                <DialogTitle>Invite created</DialogTitle>
+                <DialogTitle>
+                  {outcome.emailed ? "Invite sent" : "Invite created"}
+                </DialogTitle>
                 <DialogDescription>
-                  Send this link to {form.getValues("email")}. It works once and
-                  expires {formatDateTime(link.expiresAt)}. It won&apos;t be
-                  shown again.
+                  {outcome.emailed
+                    ? `We emailed the link to ${form.getValues("email")}. You can also copy it below.`
+                    : outcome.emailed === false
+                      ? `We couldn't send the email. Copy the link and send it to ${form.getValues("email")} yourself.`
+                      : `Send this link to ${form.getValues("email")}.`}{" "}
+                  It works once and expires {formatDateTime(outcome.expiresAt)},
+                  and won&apos;t be shown again.
                 </DialogDescription>
               </DialogHeader>
-              <CopyLink url={link.url} />
+              <CopyLink url={outcome.url} />
               <DialogFooter>
                 <Button onClick={() => onOpenChange(false)}>Done</Button>
               </DialogFooter>
             </>
+          ) : outcome?.kind === "existing-reader" ? (
+            <PromoteReader
+              reader={outcome}
+              email={form.getValues("email")}
+              onDone={() => onOpenChange(false)}
+            />
           ) : (
             <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
               <DialogHeader>
-                <DialogTitle>Invite a user</DialogTitle>
+                <DialogTitle>Invite a team member</DialogTitle>
                 <DialogDescription>
-                  You&apos;ll get a one-time sign-up link to send them.
+                  They get a one-time sign-up link that expires in a week.
                 </DialogDescription>
               </DialogHeader>
               <FieldGroup className="py-4">
@@ -166,7 +232,7 @@ export function InviteButton() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {ROLES.map((r) => (
+                          {STAFF_ROLES.map((r) => (
                             <SelectItem key={r} value={r}>
                               {ROLE_LABELS[r]}
                             </SelectItem>
@@ -177,6 +243,27 @@ export function InviteButton() {
                         Authors write drafts; editors publish and manage tags;
                         admins also manage users and settings.
                       </FieldDescription>
+                    </Field>
+                  )}
+                />
+                <Controller
+                  name="sendEmail"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Field orientation="horizontal">
+                      <FieldContent>
+                        <FieldLabel htmlFor="invite-send-email">
+                          Email the link to them
+                        </FieldLabel>
+                        <FieldDescription>
+                          Either way, you can copy it next.
+                        </FieldDescription>
+                      </FieldContent>
+                      <Switch
+                        id="invite-send-email"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </Field>
                   )}
                 />

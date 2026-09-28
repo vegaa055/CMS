@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { PostEditorPost } from "@/components/admin/posts/post-editor";
 import { PostEditorLoader } from "@/components/admin/posts/post-editor-loader";
 import { can, canDeletePost, canEditPost } from "@/lib/auth/permissions";
-import { requireSession } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { getAllTagNames, getPostForEdit } from "@/lib/queries/admin";
 
 export async function generateMetadata({
@@ -20,7 +20,7 @@ export default async function PostEditorPage({
   params,
 }: PageProps<"/admin/posts/[id]">) {
   const { id } = await params;
-  const { user } = await requireSession();
+  const { user } = await requirePermission("dashboard:view");
 
   let post: PostEditorPost | null = null;
   let canDelete = false;

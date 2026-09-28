@@ -3,7 +3,15 @@
  * The client check is cosmetic only; every mutation must re-check on the server.
  */
 
-export const ROLES = ["admin", "editor", "author"] as const;
+/** Roles that work on the site and can use the dashboard. */
+export const STAFF_ROLES = ["admin", "editor", "author"] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/**
+ * Readers sign up on the public site and hold no permissions below, so every
+ * dashboard page and action refuses them. Unknown roles are treated as readers.
+ */
+export const ROLES = [...STAFF_ROLES, "reader"] as const;
 export type Role = (typeof ROLES)[number];
 
 const PERMISSIONS = {
@@ -23,6 +31,8 @@ const PERMISSIONS = {
 
 export type Permission = keyof typeof PERMISSIONS;
 
+export const PERMISSION_NAMES = Object.keys(PERMISSIONS) as Permission[];
+
 export function isRole(value: unknown): value is Role {
   return typeof value === "string" && ROLES.includes(value as Role);
 }
@@ -30,6 +40,11 @@ export function isRole(value: unknown): value is Role {
 export function can(role: Role | null | undefined, permission: Permission) {
   if (!role) return false;
   return (PERMISSIONS[permission] as readonly Role[]).includes(role);
+}
+
+/** Team member (not a reader): may use the dashboard. */
+export function isStaff(role: Role | null | undefined) {
+  return can(role, "dashboard:view");
 }
 
 /**
@@ -87,4 +102,5 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
   editor: "Editor",
   author: "Author",
+  reader: "Reader",
 };

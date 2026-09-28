@@ -52,8 +52,11 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
 **Team**
 
 - Roles: **admin**, **editor**, **author**, enforced on every page and server action
-- Invite-only sign-up with one-time, hashed, expiring links
+- Team members join by one-time, hashed, expiring invite links, copied or emailed
+- Optional **reader** accounts: public sign-up you switch on in Settings; readers never get
+  dashboard access
 - Profiles with avatars and public author pages; editable site settings
+- Email (Resend): password reset for everyone, email confirmation for readers
 
 **Quality**
 
@@ -72,6 +75,7 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
 | Auth          | Better Auth (email/password, optional GitHub OAuth)    |
 | Editor        | Tiptap 3 (stored as JSON, server-rendered)             |
 | Media storage | Cloudflare R2 (S3-compatible, `aws4fetch`)             |
+| Email         | Resend (REST API), plain HTML + text templates         |
 | Testing       | Vitest, Playwright                                     |
 | Hosting / CI  | Vercel, GitHub Actions                                 |
 
@@ -125,7 +129,8 @@ npm run dev
 ```
 
 Open http://localhost:3000/register. **The first account becomes the admin**; after that,
-registration is closed and people join by invite. Media uses local disk storage until you
+the team joins by invite, and readers can sign up once you allow it in Settings. Media uses
+local disk storage until you
 [configure R2](#media-storage).
 
 ## Scripts
@@ -145,11 +150,11 @@ registration is closed and people join by invite. Media uses local disk storage 
 
 ## Testing
 
-| Layer       | Tool       | What it covers                                                                                                              |
-| ----------- | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                        |
-| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, settings, public read models) |
-| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, public pages, headers                     |
+| Layer       | Tool       | What it covers                                                                                                                                                                                                 |
+| ----------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                           |
+| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, settings, public read models), plus a sweep proving readers are refused by every dashboard action |
+| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, public pages, headers                                                                      |
 
 Integration and e2e tests create their own `int-*` / `e2e-*` data and remove it afterwards, so
 they can run against a development database.
@@ -174,6 +179,7 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
    | `NEXT_PUBLIC_APP_URL`                                                                     | Your canonical URL exactly as served, e.g. `https://www.astral-vega.com` (defaults to the Vercel domain) |
    | `STORAGE_DRIVER`                                                                          | `r2`                                                                                                     |
    | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | From Cloudflare                                                                                          |
+   | `EMAIL_DRIVER`, `RESEND_API_KEY`, `EMAIL_FROM`                                            | `resend`, your Resend API key, and a sender on your verified domain ([Email](#email))                    |
 
    Preview deployments work without extra configuration (auth trusts the deployment URL); point
    their `DATABASE_URL` at a non-production branch.
@@ -184,9 +190,18 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
 
 ### Authentication and roles
 
-- The **first account** to register becomes the admin. After that, registration is closed
-  unless `AUTH_ALLOW_SIGNUP=true`; new people join through **invites** (Users → Invite user).
-  Only a SHA-256 hash of the invite token is stored, and links expire after 7 days.
+- The **first account** to register becomes the admin. After that, the team joins through
+  **invites** (Users → Invite user). Only a SHA-256 hash of the invite token is stored, and
+  links expire after 7 days.
+- **Readers** are a fourth role with no dashboard permissions. Public sign-up is off until an
+  admin turns on **Settings → Allow reader sign-up**; open sign-up (including first-time GitHub
+  sign-in) only ever creates readers. Admins find them under **Users → Readers** and can promote
+  them. After signing in, the team lands on the dashboard and readers return to the page they
+  came from.
+- **Email:** anyone can reset a forgotten password by email (Sign in → Forgot password?);
+  resetting signs the account out everywhere. New readers get a confirmation link; they can
+  use the site right away, and a confirmed address will be required to comment. Invited team
+  members count as confirmed.
 - Roles are checked in every page and server action (`requireSession()` /
   `requirePermission()`); `src/proxy.ts` is only an optimistic redirect for signed-out visitors.
   Permissions are defined in `src/lib/auth/permissions.ts`.
@@ -245,6 +260,23 @@ existing files keep their old URLs until rewritten.
 4. **API token** — R2 → _Manage API tokens_ → _Create API token_ with **Object Read & Write**,
    scoped to the bucket.
 5. **Configure** `STORAGE_DRIVER=r2` and the `R2_*` variables, then restart.
+
+### Email
+
+| `EMAIL_DRIVER` | What happens                                                                  | Use for                 |
+| -------------- | ----------------------------------------------------------------------------- | ----------------------- |
+| `console`      | Printed to the server log and saved to `./.emails` (tests read links from it) | Local development, CI   |
+| `resend`       | Delivered through [Resend](https://resend.com)                                | Previews and production |
+
+Mail to reserved test domains (`.local`, `.test`, `example.com`, …) always goes to the outbox,
+so test runs never bounce off Resend. Emails are sent after the response (Next.js `after()`),
+so response times don't reveal whether an account exists, and each address gets at most three
+reset or confirmation emails an hour (on top of Better Auth's per-IP limits).
+
+**Setting up Resend:** add and verify your domain in Resend (it gives you DNS records for SPF
+and DKIM), create an API key with sending access, then set `EMAIL_DRIVER=resend`,
+`RESEND_API_KEY`, and `EMAIL_FROM` (e.g. `welcome@example.com`). The sender's display name is
+the site name from Settings.
 
 ### Database
 

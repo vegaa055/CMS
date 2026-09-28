@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { signIn } from "@/lib/auth/client";
+import { continueUrl } from "@/lib/auth/landing";
 
 const schema = z.object({
   email: z.email("Enter a valid email"),
@@ -28,7 +30,8 @@ export function LoginForm({
   next,
   githubEnabled,
 }: {
-  next: string;
+  /** Page to return to after signing in (already validated). */
+  next?: string;
   githubEnabled: boolean;
 }) {
   const router = useRouter();
@@ -45,7 +48,7 @@ export function LoginForm({
       setFormError(error.message ?? "Invalid email or password");
       return;
     }
-    router.replace(next);
+    router.replace(continueUrl(next));
     router.refresh();
   }
 
@@ -54,7 +57,7 @@ export function LoginForm({
       <FieldGroup>
         {githubEnabled && (
           <>
-            <GitHubButton callbackURL={next} />
+            <GitHubButton callbackURL={continueUrl(next)} />
             <FieldSeparator>or</FieldSeparator>
           </>
         )}
@@ -80,7 +83,15 @@ export function LoginForm({
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <div className="flex items-center justify-between gap-2">
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <Link
+                  href="/forgot-password"
+                  className="text-muted-foreground hover:text-foreground text-sm underline-offset-4 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 {...field}
                 id="password"

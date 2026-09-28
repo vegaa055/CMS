@@ -3,12 +3,12 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/page-header";
 import { PasswordForm } from "@/components/admin/profile/password-form";
 import { ProfileForm } from "@/components/admin/profile/profile-form";
-import { requireSession } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Profile" };
 
 export default async function ProfilePage() {
-  const { user } = await requireSession();
+  const { user } = await requirePermission("dashboard:view");
 
   return (
     <>

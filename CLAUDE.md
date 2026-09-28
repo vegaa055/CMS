@@ -11,12 +11,11 @@
 - Schema changes: edit `src/db/schema/*`, then `npm run db:generate && npm run db:migrate`. Never hand-edit applied migrations.
 - Keep `posts.content_text` in sync with `posts.content` via `richTextToPlainText` (feeds the generated `search_vector`).
 - Neon project `folio-cms` (snowy-credit-18981856): `main` = prod, `dev` = local.
-- Auth: server `@/lib/auth` (Better Auth instance), client `@/lib/auth/client`. Guard admin pages and every server action with `requireSession()` / `requirePermission()`; `proxy.ts` is only an optimistic cookie check.
-- Roles/permissions: `src/lib/auth/permissions.ts` (`can`, `canOnResource`). Never trust client-supplied roles.
+- Auth: server `@/lib/auth` (Better Auth instance), client `@/lib/auth/client`. Guard dashboard pages and actions with `requirePermission()` (or `isStaff`/`can` checks) — never a bare `requireSession()`, which readers pass too. `proxy.ts` is only an optimistic cookie check.
+- Roles/permissions: `src/lib/auth/permissions.ts` (`can`, `canOnResource`, `isStaff`). `reader` holds no permissions and unknown roles fall back to it. Never trust client-supplied roles. Every exported admin server action needs a case in `src/app/admin/reader-lockdown.int.test.ts` (it fails otherwise).
 - Admin UI: nav lives in `src/config/admin-nav.ts` (sidebar, breadcrumbs, ⌘K all read it). Pages use `PageHeader`, `EmptyState`, `DataTable` from `src/components/admin/`. Table column defs must live in client components; pass serializable rows (ISO date strings).
 - TanStack Table is pinned to v8 (v9 has a different API).
 - Drizzle gotcha: in single-table selects, raw `sql` column refs are unqualified — use joins + groupBy instead of correlated subqueries.
-- Session role is cached in a cookie for 5 min (`cookieCache`); role changes need session revocation to apply immediately.
 - Editor schema: add/remove Tiptap node or mark extensions only in `src/lib/editor/extensions.ts` (shared by editor, sanitizer, renderer). Editor-only UX extensions (placeholder, typography) go in the editor component.
 - Server actions return `ActionResult` (`@/lib/action-result`) and authorize with `getSession()` + permission helpers — never trust ids/roles from the client. Postgres error codes: use `pgError()` from `@/db/errors` (Drizzle wraps driver errors).
 - Public visibility: always filter with `livePostWhere()`; display status with `effectiveStatus()`.
@@ -30,6 +29,12 @@
 - OG images: `renderOgImage` in `src/lib/og.tsx` (Satori needs literal colors and vendored fonts in `assets/fonts`; read them with literal paths so file tracing bundles them).
 - Site identity: read with `getSiteSettings()` (`@/lib/settings`), never `siteConfig.name/tagline/...` directly (site.ts only supplies defaults + `url`). Client components get it via props.
 - Sessions: no Better Auth cookie cache — role changes/removals are immediate. Invites: `acceptInvite` runs sign-up inside `inviteContext` (AsyncLocalStorage) so the auth hook admits the invited email with its role; tokens are stored hashed (`@/lib/invites`).
+- Sign-up policy: `registrationMode()` in `@/lib/auth` (first-admin / readers / closed), driven by the Settings switch (`getReaderSettings()`); open sign-up only creates readers. `user.role` has no DB default, so every insert must name a role. After sign-in, send users through `continueUrl(next)` (`@/lib/auth/landing`), which picks the landing page by role.
+- Settings are grouped (`settingsGroup` in `@/lib/settings`): `site.*` via `getSiteSettings()`, `readers.*` via `getReaderSettings()`. Add new groups the same way.
+- drizzle-kit migrate applies all pending migrations in one transaction: a newly added enum value can't be used (e.g. as a column default) in the same batch.
+- Email: send only via `sendEmail()` (`@/lib/email`, server-only; drivers `console` | `resend` via `EMAIL_DRIVER`). Templates live in `@/lib/email/templates` (plain HTML strings with inline styles + a text version; escape every value with `escapeHtml`). Reserved test domains (e.g. `@folio.local`) never leave the machine: they go to the `./.emails` outbox, which e2e tests read (`e2e/emails.ts`).
+- Auth emails (reset, verification) go through Better Auth's `backgroundTasks` handler (`runAfterResponse` → Next `after()`) and are capped per recipient with `consumeRateLimit()` (`@/lib/rate-limit`, `app:` keys in the `rate_limit` table). Readers may sign in unverified; gate features that need a confirmed address on `emailVerified` (invited staff are created verified).
+- Int tests that create users through Better Auth sign-up must mock `sendEmail` and delete their `app:email:*:<user id>` rate-limit rows.
 - Int tests must never modify pre-existing users/settings; create `int-*` rows and snapshot/restore anything shared.
 - E2E: Playwright (`e2e/`), runs against a running dev server locally or `next start` in CI; global setup creates an `e2e-admin` with a random password. Scope locators to `main` (production streaming briefly duplicates DOM in a hidden container).
 - CI: `.github/workflows/ci.yml` forks ephemeral Neon branches from the empty `ci-base` branch (never from `main`/`dev`). Don't write to `ci-base`.

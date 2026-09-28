@@ -10,7 +10,10 @@ import { siteConfig } from "@/config/site";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { env } from "@/env";
+import { runAfterResponse } from "@/lib/background";
+import { getReaderSettings } from "@/lib/settings";
 
+import { sendPasswordResetLink, sendVerificationLink } from "./emails";
 import { inviteContext } from "./invite-context";
 import { withWwwVariant } from "./origins";
 
@@ -27,13 +30,18 @@ async function hasAdmin() {
   return Boolean(row);
 }
 
+export type RegistrationMode = "first-admin" | "readers" | "closed";
+
 /**
- * Registration policy: the very first account becomes admin (bootstrap).
- * After that, sign-up (including first-time OAuth) is closed unless
- * AUTH_ALLOW_SIGNUP=true or the user is accepting an invitation.
+ * Who may create an account right now, invitations aside (those always
+ * work). Applies to every sign-up path, including first-time GitHub sign-in:
+ * - "first-admin": no admin exists yet, so the next account becomes admin;
+ * - "readers": reader sign-up is on in Settings; new accounts are readers;
+ * - "closed": nobody.
  */
-export async function isRegistrationOpen() {
-  return env.AUTH_ALLOW_SIGNUP || !(await hasAdmin());
+export async function registrationMode(): Promise<RegistrationMode> {
+  if (!(await hasAdmin())) return "first-admin";
+  return (await getReaderSettings()).signupEnabled ? "readers" : "closed";
 }
 
 export const auth = betterAuth({
@@ -58,6 +66,24 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 10,
     autoSignIn: true,
+    // Reset links last an hour (the default); using one signs the account
+    // out everywhere.
+    sendResetPassword: ({ user, url }) => sendPasswordResetLink(user, url),
+    revokeSessionsOnPasswordReset: true,
+  },
+  // Readers can sign in before verifying; a verified email is only needed
+  // for commenting. Verification links don't sign anyone in, so a leaked
+  // link can't be used as a login.
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: false,
+    expiresIn: 60 * 60 * 24,
+    sendVerificationEmail: ({ user, url }) => sendVerificationLink(user, url),
+  },
+  advanced: {
+    // Emails are sent after the response, so response times don't reveal
+    // whether an account exists; after() keeps the function alive on Vercel.
+    backgroundTasks: { handler: runAfterResponse },
   },
   socialProviders: githubEnabled
     ? {
@@ -69,8 +95,9 @@ export const auth = betterAuth({
     : undefined,
   user: {
     additionalFields: {
-      // input: false — clients can never set their own role.
-      role: { type: "string", input: false, defaultValue: "author" },
+      // input: false — clients can never set their own role. The sign-up
+      // hook below always sets it; the default is only a least-privilege net.
+      role: { type: "string", input: false, defaultValue: "reader" },
       // Profile fields are edited only through our own server actions.
       username: { type: "string", required: false, input: false },
       bio: { type: "string", required: false, input: false },
@@ -86,6 +113,9 @@ export const auth = betterAuth({
       "/sign-in/email": { window: 60, max: 5 },
       "/sign-up/email": { window: 60, max: 3 },
       "/change-password": { window: 60, max: 5 },
+      "/reset-password": { window: 60, max: 5 },
+      // Built in: reset and verification requests are limited to 3 per
+      // minute per IP; `./emails` also caps them per recipient.
     },
   },
   // No session cookie cache: every check reads the DB, so role changes and
@@ -101,17 +131,25 @@ export const auth = betterAuth({
                 message: "This invitation is for a different email address.",
               });
             }
-            return { data: { ...user, role: invite.role } };
+            // An admin invited this address, so treat it as verified (and
+            // skip the verification email).
+            return {
+              data: { ...user, role: invite.role, emailVerified: true },
+            };
           }
-          if (!(await hasAdmin())) {
-            return { data: { ...user, role: "admin" } };
-          }
-          if (!env.AUTH_ALLOW_SIGNUP) {
+          const mode = await registrationMode();
+          if (mode === "closed") {
             throw new APIError("FORBIDDEN", {
-              message: "Registration is closed. Ask an admin for an invite.",
+              message: "Registration is closed right now.",
             });
           }
-          return { data: { ...user, role: "author" } };
+          // Open sign-up only ever creates readers; staff join by invite.
+          return {
+            data: {
+              ...user,
+              role: mode === "first-admin" ? "admin" : "reader",
+            },
+          };
         },
       },
     },

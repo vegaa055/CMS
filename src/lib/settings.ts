@@ -2,14 +2,83 @@ import "server-only";
 
 import { inArray, sql } from "drizzle-orm";
 import { cache } from "react";
+import type { z } from "zod";
 
 import { siteConfig } from "@/config/site";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import {
+  readerSettingsSchema,
   siteSettingsSchema,
+  type ReaderSettings,
   type SiteSettings,
 } from "@/lib/validation/settings";
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * A group of settings stored one row per field, keyed `<prefix>.<field>`.
+ * Reads are deduplicated per request; invalid or missing stored values fall
+ * back to the defaults field by field.
+ */
+function settingsGroup<T extends Record<string, unknown>>(
+  prefix: string,
+  schema: z.ZodType<T>,
+  defaults: T,
+) {
+  const fields = Object.keys(defaults) as (keyof T & string)[];
+  const keyOf = (field: string) => `${prefix}.${field}`;
+
+  const get = cache(async (): Promise<T> => {
+    const rows = await db
+      .select()
+      .from(settings)
+      .where(inArray(settings.key, fields.map(keyOf)));
+    const stored = new Map(rows.map((r) => [r.key, r.value]));
+
+    const merged = Object.fromEntries(
+      fields.map((field) => {
+        const fallback = defaults[field];
+        if (!stored.has(keyOf(field))) return [field, fallback];
+        const value = stored.get(keyOf(field));
+        // Nested objects (e.g. social links) merge over their defaults, so
+        // fields added later get default values.
+        return [
+          field,
+          isPlainObject(fallback) && isPlainObject(value)
+            ? { ...fallback, ...value }
+            : value,
+        ];
+      }),
+    ) as T;
+
+    const parsed = schema.safeParse(merged);
+    if (parsed.success) return parsed.data;
+    // Keep valid fields; reset only the broken ones.
+    const broken = new Set(parsed.error.issues.map((i) => String(i.path[0])));
+    return Object.fromEntries(
+      fields.map((field) => [
+        field,
+        broken.has(field) ? defaults[field] : merged[field],
+      ]),
+    ) as T;
+  });
+
+  async function save(values: T) {
+    await db
+      .insert(settings)
+      .values(
+        fields.map((field) => ({ key: keyOf(field), value: values[field] })),
+      )
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: sql`excluded.value`, updatedAt: new Date() },
+      });
+  }
+
+  return { get, save };
+}
 
 /** Defaults come from `src/config/site.ts`; stored values override them. */
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -25,57 +94,27 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   },
 };
 
-const KEYS = {
-  name: "site.name",
-  tagline: "site.tagline",
-  description: "site.description",
-  ownerName: "site.ownerName",
-  links: "site.links",
-} as const satisfies Record<keyof SiteSettings, string>;
+const siteSettings = settingsGroup(
+  "site",
+  siteSettingsSchema,
+  DEFAULT_SITE_SETTINGS,
+);
 
-/**
- * Current site settings (deduplicated per request). Invalid or missing
- * stored values fall back to defaults field by field.
- */
-export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
-  const rows = await db
-    .select()
-    .from(settings)
-    .where(inArray(settings.key, Object.values(KEYS)));
-  const stored = new Map(rows.map((r) => [r.key, r.value]));
+/** Site identity and links. */
+export const getSiteSettings = siteSettings.get;
+export const saveSiteSettings = siteSettings.save;
 
-  const merged = {
-    ...DEFAULT_SITE_SETTINGS,
-    ...Object.fromEntries(
-      (Object.keys(KEYS) as (keyof SiteSettings)[])
-        .filter((field) => stored.has(KEYS[field]))
-        .map((field) => [field, stored.get(KEYS[field])]),
-    ),
-  };
-  merged.links = { ...DEFAULT_SITE_SETTINGS.links, ...(merged.links ?? {}) };
+/** Reader sign-up starts closed; admins open it in Settings. */
+export const DEFAULT_READER_SETTINGS: ReaderSettings = {
+  signupEnabled: false,
+};
 
-  const parsed = siteSettingsSchema.safeParse(merged);
-  if (parsed.success) return parsed.data;
-  // Keep valid fields; reset only the broken ones.
-  const broken = new Set(parsed.error.issues.map((i) => String(i.path[0])));
-  return Object.fromEntries(
-    Object.entries(merged).map(([k, v]) => [
-      k,
-      broken.has(k) ? DEFAULT_SITE_SETTINGS[k as keyof SiteSettings] : v,
-    ]),
-  ) as SiteSettings;
-});
+const readerSettings = settingsGroup(
+  "readers",
+  readerSettingsSchema,
+  DEFAULT_READER_SETTINGS,
+);
 
-export async function saveSiteSettings(values: SiteSettings) {
-  const rows = (Object.keys(KEYS) as (keyof SiteSettings)[]).map((field) => ({
-    key: KEYS[field],
-    value: values[field],
-  }));
-  await db
-    .insert(settings)
-    .values(rows)
-    .onConflictDoUpdate({
-      target: settings.key,
-      set: { value: sql`excluded.value`, updatedAt: new Date() },
-    });
-}
+/** Reader accounts: whether the public can sign up. */
+export const getReaderSettings = readerSettings.get;
+export const saveReaderSettings = readerSettings.save;

@@ -84,7 +84,7 @@ export function CommandMenu({ role }: { role: Role }) {
             if (!items.length) return null;
             return (
               <CommandGroup key={group.label} heading={group.label}>
-                {items.map((item) => (
+                {items.flatMap((item) => [
                   <CommandItem
                     key={item.href}
                     value={item.title}
@@ -93,8 +93,22 @@ export function CommandMenu({ role }: { role: Role }) {
                   >
                     <item.icon />
                     {item.title}
-                  </CommandItem>
-                ))}
+                  </CommandItem>,
+                  ...Object.entries(item.subpages ?? {}).map(
+                    ([segment, title]) => (
+                      <CommandItem
+                        key={`${item.href}/${segment}`}
+                        value={`${item.title} ${title}`}
+                        onSelect={() =>
+                          run(() => router.push(`${item.href}/${segment}`))
+                        }
+                      >
+                        <item.icon />
+                        {item.title} › {title}
+                      </CommandItem>
+                    ),
+                  ),
+                ])}
               </CommandGroup>
             );
           })}

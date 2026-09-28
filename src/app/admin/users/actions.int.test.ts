@@ -3,18 +3,30 @@
  * Only touches its own `int-p7-*` rows; existing users are never modified.
  * Run with `npm run test:int`.
  */
-import { and, eq, inArray, like, notLike } from "drizzle-orm";
+import { and, eq, inArray, like, notLike, or } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { acceptInvite } from "@/app/(auth)/invite/actions";
+import {
+  acceptInvite,
+  acceptInviteAsReader,
+} from "@/app/(auth)/invite/actions";
 import { updateProfile } from "@/app/admin/profile/actions";
 import { updateSiteSettings } from "@/app/admin/settings/actions";
 import { db } from "@/db";
 import { account, invitation, settings, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import type { Role } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
-import { findValidInvite } from "@/lib/invites";
-import { DEFAULT_SITE_SETTINGS, getSiteSettings } from "@/lib/settings";
+import {
+  findValidInvite,
+  hashInviteToken,
+  newInviteToken,
+} from "@/lib/invites";
+import {
+  DEFAULT_SITE_SETTINGS,
+  getSiteSettings,
+  saveReaderSettings,
+} from "@/lib/settings";
 
 import {
   changeUserRole,
@@ -45,9 +57,10 @@ const P = "int-p7";
 const ADMIN = { id: `${P}-admin`, role: "admin" as const };
 const ADMIN2 = { id: `${P}-admin2`, role: "admin" as const };
 const AUTHOR = { id: `${P}-author`, role: "author" as const };
+const READER = { id: `${P}-reader`, role: "reader" as const };
 const email = (name: string) => `${name}@folio.local`;
 
-function actAs(u: { id: string; role: "admin" | "editor" | "author" }) {
+function actAs(u: { id: string; role: Role }) {
   vi.mocked(getSession).mockResolvedValue({
     user: { ...u, name: u.id, email: email(u.id) },
   } as never);
@@ -60,6 +73,10 @@ const otherAdmins = await db
 const onlyTestAdmins = otherAdmins.length === 0;
 
 let savedSettings: (typeof settings.$inferSelect)[] = [];
+const sharedSettings = or(
+  like(settings.key, "site.%"),
+  like(settings.key, "readers.%"),
+);
 
 async function cleanup() {
   await db.delete(invitation).where(like(invitation.email, `${P}%`));
@@ -67,13 +84,10 @@ async function cleanup() {
 }
 
 beforeAll(async () => {
-  savedSettings = await db
-    .select()
-    .from(settings)
-    .where(like(settings.key, "site.%"));
+  savedSettings = await db.select().from(settings).where(sharedSettings);
   await cleanup();
   await db.insert(user).values(
-    [ADMIN, ADMIN2, AUTHOR].map((u) => ({
+    [ADMIN, ADMIN2, AUTHOR, READER].map((u) => ({
       id: u.id,
       role: u.role,
       name: u.id,
@@ -84,8 +98,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanup();
-  // Restore whatever site settings existed before the run.
-  await db.delete(settings).where(like(settings.key, "site.%"));
+  // Restore whatever site and reader settings existed before the run.
+  await db.delete(settings).where(sharedSettings);
   if (savedSettings.length) await db.insert(settings).values(savedSettings);
 });
 
@@ -93,6 +107,8 @@ describe("role management", () => {
   it("is admin-only", async () => {
     actAs(AUTHOR);
     expect((await changeUserRole(ADMIN2.id, "author")).ok).toBe(false);
+    actAs(READER);
+    expect((await changeUserRole(READER.id, "admin")).ok).toBe(false);
   });
 
   it("refuses changing your own role or removing yourself", async () => {
@@ -120,6 +136,16 @@ describe("role management", () => {
     });
   });
 
+  it("moves people between readers and the team", async () => {
+    actAs(ADMIN);
+    expect((await changeUserRole(READER.id, "author")).ok).toBe(true);
+    expect((await changeUserRole(READER.id, "reader")).ok).toBe(true);
+    const row = await db.query.user.findFirst({
+      where: eq(user.id, READER.id),
+    });
+    expect(row?.role).toBe("reader");
+  });
+
   it("removes users", async () => {
     actAs(ADMIN);
     expect((await removeUser(ADMIN2.id)).ok).toBe(true);
@@ -140,6 +166,10 @@ describe("role management", () => {
         ok: false,
         error: expect.stringMatching(/at least one admin/),
       });
+      expect(await changeUserRole(ADMIN.id, "reader")).toMatchObject({
+        ok: false,
+        error: expect.stringMatching(/at least one admin/),
+      });
       expect(await removeUser(ADMIN.id)).toMatchObject({
         ok: false,
         error: expect.stringMatching(/at least one admin/),
@@ -153,7 +183,7 @@ describe("invitations", () => {
   const invited = email(`${P}-invitee`);
   const tokenOf = (url: string) => url.split("/invite/")[1]!;
 
-  it("rejects inviting an existing account", async () => {
+  it("rejects inviting someone already on the team", async () => {
     actAs(ADMIN);
     expect(
       await createInvite({ email: email(AUTHOR.id), role: "author" }),
@@ -163,14 +193,42 @@ describe("invitations", () => {
     });
   });
 
+  it("offers to promote a reader instead of inviting them", async () => {
+    actAs(ADMIN);
+    expect(
+      await createInvite({ email: email(READER.id), role: "editor" }),
+    ).toEqual({
+      ok: true,
+      data: {
+        kind: "existing-reader",
+        userId: READER.id,
+        name: READER.id,
+        role: "editor",
+      },
+    });
+    const rows = await db
+      .select()
+      .from(invitation)
+      .where(eq(invitation.email, email(READER.id)));
+    expect(rows).toEqual([]);
+  });
+
+  it("only invites team roles", async () => {
+    actAs(ADMIN);
+    expect(
+      (await createInvite({ email: email(`${P}-x`), role: "reader" })).ok,
+    ).toBe(false);
+  });
+
   it("creates a one-time link, storing only a hash", async () => {
     actAs(ADMIN);
     const result = await createInvite({
       email: invited.toUpperCase(),
       role: "editor",
     });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok || result.data.kind !== "invite") {
+      throw new Error("expected an invite link");
+    }
     inviteUrl = result.data.url;
     const token = tokenOf(inviteUrl);
     const row = await findValidInvite(token);
@@ -179,6 +237,7 @@ describe("invitations", () => {
   });
 
   it("keeps public sign-up closed without an invite", async () => {
+    await saveReaderSettings({ signupEnabled: false });
     await expect(
       auth.api.signUpEmail({
         body: { email: invited, name: "Sneaky", password: "long-enough-pw" },
@@ -217,7 +276,9 @@ describe("invitations", () => {
       email: email(`${P}-revoked`),
       role: "author",
     });
-    if (!result.ok) throw new Error(result.error);
+    if (!result.ok || result.data.kind !== "invite") {
+      throw new Error("expected an invite link");
+    }
     const row = await findValidInvite(tokenOf(result.data.url));
     expect((await revokeInvite(row!.id)).ok).toBe(true);
     expect(await findValidInvite(tokenOf(result.data.url))).toBeUndefined();
@@ -225,10 +286,50 @@ describe("invitations", () => {
   });
 });
 
+describe("invitations for readers who signed up meanwhile", () => {
+  // Invited first, then signed up as a reader before accepting.
+  const token = newInviteToken();
+
+  beforeAll(async () => {
+    await db.insert(invitation).values({
+      id: crypto.randomUUID(),
+      email: email(READER.id),
+      role: "author",
+      tokenHash: hashInviteToken(token),
+      expiresAt: new Date(Date.now() + 86_400_000),
+    });
+  });
+
+  it("won't create a second account for the same email", async () => {
+    expect(
+      await acceptInvite(token, { name: "Dup", password: "long-enough-pw" }),
+    ).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/already have an account/),
+    });
+    expect(await findValidInvite(token)).toBeDefined();
+  });
+
+  it("only lets the invited reader accept in place", async () => {
+    actAs(AUTHOR); // different email
+    expect((await acceptInviteAsReader(token)).ok).toBe(false);
+    actAs(READER);
+    await expect(acceptInviteAsReader(token)).rejects.toThrow(
+      /REDIRECT \/admin/,
+    );
+    const row = await db.query.user.findFirst({
+      where: eq(user.id, READER.id),
+    });
+    expect(row?.role).toBe("author");
+    expect(await findValidInvite(token)).toBeUndefined();
+  });
+});
+
 describe("profiles", () => {
+  const base = { name: "Int Author", bio: "", image: "" };
+
   it("validates, normalizes, and de-duplicates usernames", async () => {
     actAs(AUTHOR);
-    const base = { name: "Int Author", bio: "", image: "" };
     expect((await updateProfile({ ...base, username: "admin" })).ok).toBe(
       false,
     );
@@ -264,6 +365,21 @@ describe("profiles", () => {
         })
       ).ok,
     ).toBe(false);
+  });
+
+  it("gives readers no author profile (no public page to claim)", async () => {
+    const reader = { id: `${P}-reader2`, role: "reader" as const };
+    await db
+      .insert(user)
+      .values({ ...reader, name: "R", email: email(reader.id) });
+    actAs(reader);
+    expect(
+      await updateProfile({ ...base, username: `${P}-squatter`, bio: "Hi" }),
+    ).toMatchObject({ ok: false });
+    const row = await db.query.user.findFirst({
+      where: eq(user.id, reader.id),
+    });
+    expect(row).toMatchObject({ username: null, bio: null });
   });
 });
 

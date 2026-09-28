@@ -12,11 +12,6 @@ export const env = createEnv({
       .default("development"),
     DATABASE_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32),
-    /** Allow public sign-up after the first (admin) account exists. */
-    AUTH_ALLOW_SIGNUP: z
-      .enum(["true", "false"])
-      .default("false")
-      .transform((v) => v === "true"),
     GITHUB_CLIENT_ID: z.string().optional(),
     GITHUB_CLIENT_SECRET: z.string().optional(),
     /**
@@ -29,6 +24,14 @@ export const env = createEnv({
     R2_SECRET_ACCESS_KEY: z.string().optional(),
     R2_BUCKET: z.string().optional(),
     R2_PUBLIC_URL: z.url().optional(),
+    /**
+     * Outgoing email. "console" logs messages and saves them to ./.emails
+     * (development and CI); "resend" delivers through Resend.
+     */
+    EMAIL_DRIVER: z.enum(["console", "resend"]).default("console"),
+    RESEND_API_KEY: z.string().optional(),
+    /** Sender address on a domain verified in Resend, e.g. hello@example.com. */
+    EMAIL_FROM: z.email().optional(),
   },
   client: {
     // Optional: see resolveAppUrl() in src/config/site.ts.
@@ -38,7 +41,6 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-    AUTH_ALLOW_SIGNUP: process.env.AUTH_ALLOW_SIGNUP,
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
     STORAGE_DRIVER: process.env.STORAGE_DRIVER,
@@ -47,6 +49,9 @@ export const env = createEnv({
     R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
     R2_BUCKET: process.env.R2_BUCKET,
     R2_PUBLIC_URL: process.env.R2_PUBLIC_URL,
+    EMAIL_DRIVER: process.env.EMAIL_DRIVER,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
   emptyStringAsUndefined: true,

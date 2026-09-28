@@ -2,11 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { acceptInvite } from "@/app/(auth)/invite/actions";
+import {
+  acceptInvite,
+  acceptInviteAsReader,
+} from "@/app/(auth)/invite/actions";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -97,5 +100,32 @@ export function InviteForm({ token, email }: { token: string; email: string }) {
         </Button>
       </FieldGroup>
     </form>
+  );
+}
+
+/** For a signed-in reader whose email was invited: upgrade in place. */
+export function AcceptInviteButton({ token }: { token: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Button
+        size="lg"
+        disabled={pending}
+        onClick={() =>
+          startTransition(async () => {
+            setError(null);
+            // On success the action redirects to the dashboard.
+            const result = await acceptInviteAsReader(token);
+            if (result && !result.ok) setError(result.error);
+          })
+        }
+      >
+        {pending && <Loader2 className="animate-spin" />}
+        Accept invitation
+      </Button>
+      {error && <FieldError>{error}</FieldError>}
+    </div>
   );
 }

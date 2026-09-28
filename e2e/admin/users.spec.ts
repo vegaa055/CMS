@@ -1,22 +1,29 @@
 import { expect, test } from "@playwright/test";
 
 import { E2E } from "../db";
+import { linkIn, waitForEmail } from "../emails";
 
 test("invite a user, who signs up and is then removed", async ({
   page,
   browser,
 }) => {
-  const email = `e2e-invitee-${Date.now()}@folio.local`;
+  const start = Date.now();
+  const email = `e2e-invitee-${start}@folio.local`;
 
   await page.goto("/admin/users");
   await page.getByRole("button", { name: "Invite user" }).click();
-  await page.getByLabel("Email").fill(email);
+  // Exact: the "Email the link to them" switch also mentions email.
+  await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByRole("button", { name: "Create invite" }).click();
   const link = await page
     .locator('input[readonly][value*="/invite/"]')
     .inputValue();
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByText(email)).toBeVisible(); // pending invites list
+
+  // "Email the link" is on by default: the email carries the same link.
+  const invite = await waitForEmail(email, "invite", start);
+  expect(linkIn(invite)).toBe(link);
 
   // Accept in a separate, signed-out browser.
   const guest = await browser.newContext({

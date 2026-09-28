@@ -11,13 +11,17 @@ import { can, isRole, type Permission, type Role } from "./permissions";
 export const getSession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return null;
-  const role: Role = isRole(session.user.role) ? session.user.role : "author";
+  // Least privilege: anything unrecognized is treated as a reader.
+  const role: Role = isRole(session.user.role) ? session.user.role : "reader";
   return { ...session, user: { ...session.user, role } };
 });
 
 export type AppSession = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
-/** Session or redirect to /login. Use in admin pages, layouts, and server actions. */
+/**
+ * Session or redirect to /login. Any signed-in user passes, readers
+ * included, so dashboard pages and actions must use `requirePermission`.
+ */
 export async function requireSession() {
   const session = await getSession();
   if (!session) redirect("/login");

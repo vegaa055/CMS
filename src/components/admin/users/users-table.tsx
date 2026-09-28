@@ -1,144 +1,17 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Loader2, MoreHorizontal, UserMinus } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
-import { toast } from "sonner";
+import { useMemo } from "react";
 
-import { changeUserRole, removeUser } from "@/app/admin/users/actions";
 import { DataTable, SortableHeader } from "@/components/admin/data-table";
 import { UserAvatar } from "@/components/admin/user-avatar";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { RemoveUser, RoleSelect } from "@/components/admin/users/user-controls";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ROLE_LABELS, ROLES, type Role } from "@/lib/auth/permissions";
+import { ROLE_LABELS } from "@/lib/auth/permissions";
 import { formatDate } from "@/lib/format";
-import type { AdminUserRow } from "@/lib/queries/admin";
+import type { TeamMemberRow } from "@/lib/queries/admin";
 
-function RoleSelect({ user }: { user: AdminUserRow }) {
-  const [role, setRole] = useState<Role>(user.role);
-  const [pending, startTransition] = useTransition();
-
-  function change(next: Role) {
-    const previous = role;
-    setRole(next);
-    startTransition(async () => {
-      const result = await changeUserRole(user.id, next);
-      if (!result.ok) {
-        setRole(previous);
-        toast.error(result.error);
-        return;
-      }
-      toast.success(`${user.name} is now ${ROLE_LABELS[next].toLowerCase()}`);
-    });
-  }
-
-  return (
-    <Select
-      value={role}
-      onValueChange={(v) => change(v as Role)}
-      disabled={pending}
-    >
-      <SelectTrigger
-        size="sm"
-        className="w-32"
-        aria-label={`Role for ${user.name}`}
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {ROLES.map((r) => (
-          <SelectItem key={r} value={r}>
-            {ROLE_LABELS[r]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function RemoveUser({ user }: { user: AdminUserRow }) {
-  const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  function confirm() {
-    startTransition(async () => {
-      const result = await removeUser(user.id);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(`${user.name} was removed`);
-      setOpen(false);
-    });
-  }
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Actions for ${user.name}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => setOpen(true)}
-          >
-            <UserMinus /> Remove user
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove {user.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              They&apos;ll be signed out and lose access immediately.
-              {user.postCount > 0 &&
-                ` Their ${user.postCount} ${user.postCount === 1 ? "post stays" : "posts stay"} published without an author.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-            <Button variant="destructive" onClick={confirm} disabled={pending}>
-              {pending && <Loader2 className="animate-spin" />}
-              Remove user
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
-function buildColumns(currentUserId: string): ColumnDef<AdminUserRow>[] {
+function buildColumns(currentUserId: string): ColumnDef<TeamMemberRow>[] {
   return [
     {
       id: "name",
@@ -213,7 +86,7 @@ export function UsersTable({
   data,
   currentUserId,
 }: {
-  data: AdminUserRow[];
+  data: TeamMemberRow[];
   currentUserId: string;
 }) {
   const columns = useMemo(() => buildColumns(currentUserId), [currentUserId]);
@@ -221,8 +94,8 @@ export function UsersTable({
     <DataTable
       columns={columns}
       data={data}
-      searchPlaceholder="Filter users…"
-      emptyMessage="No users."
+      searchPlaceholder="Filter team…"
+      emptyMessage="No team members."
     />
   );
 }

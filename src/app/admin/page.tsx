@@ -5,7 +5,7 @@ import {
   FilePen,
   ImageIcon,
   Tags,
-  Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import type { Metadata } from "next";
@@ -24,7 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { can } from "@/lib/auth/permissions";
-import { requireSession } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { formatRelative } from "@/lib/format";
 import { getDashboardStats, getRecentPosts } from "@/lib/queries/admin";
 
@@ -59,7 +59,7 @@ function StatCard({
 }
 
 export default async function DashboardPage() {
-  const session = await requireSession();
+  const session = await requirePermission("dashboard:view");
   const { user } = session;
   const [stats, recent] = await Promise.all([
     getDashboardStats(session),
@@ -97,10 +97,10 @@ export default async function DashboardPage() {
     ...(can(user.role, "user:manage")
       ? [
           {
-            label: "Users",
-            value: stats.users,
-            icon: Users,
-            href: "/admin/users",
+            label: "Readers",
+            value: stats.readers,
+            icon: UsersRound,
+            href: "/admin/users/readers",
           },
         ]
       : []),

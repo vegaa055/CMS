@@ -44,6 +44,8 @@ jobs:
       NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       STORAGE_DRIVER: local
+      # Emails go to ./.emails, where the e2e tests read their links.
+      EMAIL_DRIVER: console
       BRANCH_NAME: ci-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v7

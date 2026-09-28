@@ -1,4 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { hashPassword } from "better-auth/crypto";
+
+import { sql } from "./db";
+import { linkIn, waitForEmail } from "./emails";
 
 test.describe("public site", () => {
   test("home links through to the archive and a post", async ({ page }) => {
@@ -73,5 +77,42 @@ test.describe("auth", () => {
     await page.getByLabel("Password").fill("definitely-wrong-password");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("Invalid email or password")).toBeVisible();
+  });
+
+  test("forgotten passwords are reset by email", async ({ page, baseURL }) => {
+    const stamp = Date.now();
+    const id = `e2e-reset-${stamp}`;
+    const email = `${id}@folio.local`;
+    const db = sql();
+    await db`insert into "user" (id, name, email, email_verified, role)
+      values (${id}, 'E2E Reset', ${email}, true, 'reader')`;
+    await db`insert into account (id, account_id, provider_id, user_id, password)
+      values (${`${id}-credential`}, ${id}, 'credential', ${id}, ${await hashPassword("e2e-old-password")})`;
+
+    await page.goto("/login");
+    await page.getByRole("link", { name: "Forgot password?" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Forgot your password?" }),
+    ).toBeVisible();
+    await page.getByLabel("Email").fill(email);
+    await page.getByRole("button", { name: "Send reset link" }).click();
+    await expect(page.getByText("Check your email")).toBeVisible();
+
+    const mail = await waitForEmail(email, "reset-password", stamp);
+    await page.goto(linkIn(mail));
+    await expect(page).toHaveURL(/\/reset-password\?token=/);
+    await page.getByLabel("New password").fill("e2e-new-password");
+    await page.getByLabel("Confirm password").fill("e2e-new-password");
+    await page.getByRole("button", { name: "Save new password" }).click();
+    await expect(page.getByText("Password updated")).toBeVisible();
+
+    await page.getByRole("link", { name: "Sign in" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Welcome back" }),
+    ).toBeVisible();
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("e2e-new-password");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(`${baseURL}/`);
   });
 });

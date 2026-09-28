@@ -15,13 +15,21 @@ import {
   type ActionResult,
 } from "@/lib/action-result";
 import { auth } from "@/lib/auth";
+import { isStaff } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
 import { revalidatePublicSite } from "@/lib/revalidate";
 import { passwordSchema, profileSchema } from "@/lib/validation/profile";
 
+/**
+ * Author profile (username and bio publish an author page), so team only:
+ * a reader must not be able to create a public page for themselves.
+ */
 export async function updateProfile(raw: unknown): Promise<ActionResult> {
   const session = await getSession();
   if (!session) return fail("Your session expired. Sign in again.");
+  if (!isStaff(session.user.role)) {
+    return fail("Only team members have an author profile.");
+  }
   const parsed = profileSchema.safeParse(raw);
   if (!parsed.success) {
     return fail(
@@ -53,6 +61,7 @@ export async function updateProfile(raw: unknown): Promise<ActionResult> {
   return ok(null);
 }
 
+/** Any signed-in user, readers included: it only changes their own password. */
 export async function changePassword(raw: unknown): Promise<ActionResult> {
   const session = await getSession();
   if (!session) return fail("Your session expired. Sign in again.");

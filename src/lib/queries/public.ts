@@ -16,6 +16,7 @@ import {
 
 import { db } from "@/db";
 import { posts, postTags, tags, user } from "@/db/schema";
+import { isStaff } from "@/lib/auth/permissions";
 import { summarize } from "@/lib/posts/excerpt";
 import { readingTime } from "@/lib/posts/status";
 import { livePostWhere } from "@/lib/posts/visibility";
@@ -301,19 +302,29 @@ export async function searchPosts(
     .map((r) => ({ ...byId.get(r.id)!, snippet: r.snippet }));
 }
 
-/** Public profile for an author page, or undefined. */
+/**
+ * Public profile for an author page, or undefined. Team members have one
+ * once they pick a username; anyone else only while they have live posts
+ * (e.g. an author later demoted to reader), so their bylines keep working.
+ */
 export async function getAuthorByUsername(username: string) {
-  const [author] = await db
+  const [row] = await db
     .select({
       id: user.id,
       name: user.name,
       username: user.username,
       image: user.image,
       bio: user.bio,
+      role: user.role,
+      livePosts: count(posts.id),
     })
     .from(user)
-    .where(eq(user.username, username.toLowerCase()));
-  return author;
+    .leftJoin(posts, and(eq(posts.authorId, user.id), livePostWhere()))
+    .where(eq(user.username, username.toLowerCase()))
+    .groupBy(user.id);
+  if (!row || (!isStaff(row.role) && row.livePosts === 0)) return undefined;
+  const { id, name, image, bio } = row;
+  return { id, name, username: row.username, image, bio };
 }
 
 /** Authors with a username and at least one live post (for the sitemap). */

@@ -9,6 +9,8 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
+// Relative import: drizzle-kit loads this file without the @/ path alias.
+import { ROLES } from "../../lib/auth/permissions";
 import { timestamps } from "./columns";
 
 /**
@@ -17,7 +19,7 @@ import { timestamps } from "./columns";
  * IDs are text because Better Auth generates its own.
  */
 
-export const userRole = pgEnum("user_role", ["admin", "editor", "author"]);
+export const userRole = pgEnum("user_role", ROLES);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -25,7 +27,11 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
-  role: userRole("role").notNull().default("author"),
+  /**
+   * No default on purpose: every insert names a role (the sign-up hook picks
+   * admin, the invited role, or reader), so nobody gets access by omission.
+   */
+  role: userRole("role").notNull(),
   /** Public handle for author pages (/authors/<username>). */
   username: text("username").unique(),
   bio: text("bio"),

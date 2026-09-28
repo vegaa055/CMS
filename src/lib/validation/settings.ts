@@ -26,6 +26,14 @@ export const siteSettingsSchema = z.object({
 
 export type SiteSettings = z.infer<typeof siteSettingsSchema>;
 
+/** Reader accounts (stored in the `settings` table under `readers.*`). */
+export const readerSettingsSchema = z.object({
+  /** Anyone may create a reader account at /register. */
+  signupEnabled: z.boolean(),
+});
+
+export type ReaderSettings = z.infer<typeof readerSettingsSchema>;
+
 export const SOCIAL_LINKS = [
   { key: "github", label: "GitHub" },
   { key: "x", label: "X / Twitter" },

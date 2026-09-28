@@ -3,27 +3,34 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/page-header";
 import { InviteButton, PendingInvites } from "@/components/admin/users/invites";
 import { UsersTable } from "@/components/admin/users/users-table";
+import { UsersTabs } from "@/components/admin/users/users-tabs";
 import { requirePermission } from "@/lib/auth/session";
-import { getAdminUsers, getPendingInvites } from "@/lib/queries/admin";
+import {
+  getPendingInvites,
+  getTeamMembers,
+  getUserCounts,
+} from "@/lib/queries/admin";
 
 export const metadata: Metadata = { title: "Users" };
 
 export default async function UsersPage() {
   const session = await requirePermission("user:manage");
-  const [users, invites] = await Promise.all([
-    getAdminUsers(),
+  const [team, invites, counts] = await Promise.all([
+    getTeamMembers(),
     getPendingInvites(),
+    getUserCounts(),
   ]);
 
   return (
     <>
       <PageHeader
         title="Users"
-        description="Everyone with access to the dashboard. Role changes take effect immediately."
+        description="Your team has dashboard access. Role changes take effect immediately."
       >
         <InviteButton />
       </PageHeader>
-      <UsersTable data={users} currentUserId={session.user.id} />
+      <UsersTabs active="team" counts={counts} />
+      <UsersTable data={team} currentUserId={session.user.id} />
       <PendingInvites invites={invites} />
     </>
   );

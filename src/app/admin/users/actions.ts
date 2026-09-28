@@ -12,8 +12,16 @@ import {
   zodFieldErrors,
   type ActionResult,
 } from "@/lib/action-result";
-import { can, ROLES, type Role } from "@/lib/auth/permissions";
+import {
+  can,
+  ROLE_LABELS,
+  ROLES,
+  STAFF_ROLES,
+  type Role,
+  type StaffRole,
+} from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
+import { inviteMessage, sendEmail } from "@/lib/email";
 import {
   hashInviteToken,
   INVITE_TTL_DAYS,
@@ -21,6 +29,7 @@ import {
   newInviteToken,
 } from "@/lib/invites";
 import { revalidatePublicSite } from "@/lib/revalidate";
+import { getSiteSettings } from "@/lib/settings";
 
 async function admin() {
   const session = await getSession();
@@ -41,6 +50,11 @@ async function loadTarget(id: string) {
     .from(user)
     .where(eq(user.id, id));
   return target;
+}
+
+/** Both Users tabs (Team and Readers) and the dashboard counts. */
+function revalidateUsers() {
+  revalidatePath("/admin", "layout");
 }
 
 const roleSchema = z.enum(ROLES);
@@ -69,7 +83,11 @@ export async function changeUserRole(
   // Sessions aren't cached in cookies, so the new role applies on the
   // user's very next request.
   await db.update(user).set({ role: parsed.data }).where(eq(user.id, userId));
-  revalidatePath("/admin/users");
+  revalidateUsers();
+  // Joining or leaving the team can show or hide their author page.
+  if (target.role === "reader" || parsed.data === "reader") {
+    revalidatePublicSite();
+  }
   return ok({ role: parsed.data });
 }
 
@@ -86,19 +104,33 @@ export async function removeUser(userId: string): Promise<ActionResult> {
   // Sessions and accounts cascade; their posts and uploads are kept and
   // become unattributed (FKs set null).
   await db.delete(user).where(eq(user.id, userId));
-  revalidatePath("/admin/users");
+  revalidateUsers();
   revalidatePublicSite();
   return ok(null);
 }
 
 const inviteSchema = z.object({
   email: z.email("Enter a valid email").transform((v) => v.toLowerCase()),
-  role: roleSchema,
+  // Invitations are for the team; readers sign up themselves.
+  role: z.enum(STAFF_ROLES),
+  /** Also email the link (it's always returned for copying). */
+  sendEmail: z.boolean().default(false),
 });
+
+export type InviteResult =
+  | {
+      kind: "invite";
+      url: string;
+      expiresAt: string;
+      /** Set when an email was requested: whether it went out. */
+      emailed?: boolean;
+    }
+  /** The email belongs to a reader: offer to promote them instead. */
+  | { kind: "existing-reader"; userId: string; name: string; role: StaffRole };
 
 export async function createInvite(
   raw: unknown,
-): Promise<ActionResult<{ url: string; expiresAt: string }>> {
+): Promise<ActionResult<InviteResult>> {
   const session = await admin();
   if (!session) return fail("Only admins can invite users.");
   const parsed = inviteSchema.safeParse(raw);
@@ -108,15 +140,23 @@ export async function createInvite(
       zodFieldErrors(parsed.error),
     );
   }
-  const { email, role } = parsed.data;
+  const { email, role, sendEmail: shouldEmail } = parsed.data;
 
   const [existing] = await db
-    .select({ id: user.id })
+    .select({ id: user.id, name: user.name, role: user.role })
     .from(user)
     .where(eq(user.email, email));
+  if (existing?.role === "reader") {
+    return ok({
+      kind: "existing-reader",
+      userId: existing.id,
+      name: existing.name,
+      role,
+    });
+  }
   if (existing) {
-    return fail("Someone with that email already has an account.", {
-      email: "Already registered",
+    return fail("Someone with that email is already on the team.", {
+      email: "Already on the team",
     });
   }
 
@@ -136,9 +176,39 @@ export async function createInvite(
       expiresAt,
     }),
   ]);
-  revalidatePath("/admin/users");
-  // The raw token is only ever returned here; the DB keeps just its hash.
-  return ok({ url: inviteUrl(token), expiresAt: expiresAt.toISOString() });
+  revalidateUsers();
+  const url = inviteUrl(token);
+
+  let emailed: boolean | undefined;
+  if (shouldEmail) {
+    try {
+      const site = await getSiteSettings();
+      await sendEmail({
+        to: email,
+        tag: "invite",
+        ...inviteMessage({
+          siteName: site.name,
+          inviterName: session.user.name,
+          role: ROLE_LABELS[role].toLowerCase(),
+          url,
+          days: INVITE_TTL_DAYS,
+        }),
+      });
+      emailed = true;
+    } catch (error) {
+      // The invite still exists; the admin can copy the link instead.
+      console.error("[createInvite] email failed:", error);
+      emailed = false;
+    }
+  }
+  // The raw token is only ever returned here (and in the email); the DB
+  // keeps just its hash.
+  return ok({
+    kind: "invite",
+    url,
+    expiresAt: expiresAt.toISOString(),
+    emailed,
+  });
 }
 
 export async function revokeInvite(id: string): Promise<ActionResult> {
@@ -147,6 +217,6 @@ export async function revokeInvite(id: string): Promise<ActionResult> {
   await db
     .delete(invitation)
     .where(and(eq(invitation.id, id), isNull(invitation.acceptedAt)));
-  revalidatePath("/admin/users");
+  revalidateUsers();
   return ok(null);
 }
