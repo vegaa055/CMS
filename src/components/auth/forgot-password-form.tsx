@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { useCaptcha } from "@/components/auth/turnstile";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,9 +21,15 @@ import { requestPasswordReset } from "@/lib/auth/client";
 const schema = z.object({ email: z.email("Enter a valid email") });
 type Values = z.infer<typeof schema>;
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({
+  captchaSiteKey,
+}: {
+  /** Turnstile site key, when password reset has a bot check. */
+  captchaSiteKey?: string;
+}) {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const captcha = useCaptcha(captchaSiteKey, "password-reset");
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { email: "" },
@@ -30,11 +37,12 @@ export function ForgotPasswordForm() {
 
   async function onSubmit({ email }: Values) {
     setFormError(null);
-    const { error } = await requestPasswordReset({
-      email,
-      redirectTo: "/reset-password",
-    });
+    const { error } = await requestPasswordReset(
+      { email, redirectTo: "/reset-password" },
+      { headers: captcha.headers },
+    );
     if (error) {
+      captcha.reset();
       setFormError(
         error.status === 429
           ? "Too many requests. Try again in a minute."
@@ -80,8 +88,13 @@ export function ForgotPasswordForm() {
             </Field>
           )}
         />
+        {captcha.widget}
         {formError && <FieldError>{formError}</FieldError>}
-        <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={form.formState.isSubmitting || !captcha.ready}
+        >
           {form.formState.isSubmitting && <Loader2 className="animate-spin" />}
           Send reset link
         </Button>

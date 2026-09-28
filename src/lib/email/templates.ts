@@ -176,3 +176,55 @@ export function inviteMessage({
     footnote: `This link works once and expires in ${days} days. If you weren't expecting it, you can ignore this email.`,
   });
 }
+
+/** Step 1 of an email change: sent to the current address. */
+export function emailChangeConfirmationMessage({
+  siteName,
+  name,
+  newEmail,
+  url,
+}: {
+  siteName: string;
+  name: string;
+  newEmail: string;
+  url: string;
+}) {
+  return render({
+    siteName,
+    subject: `Confirm your new email for ${siteName}`,
+    preview: `Confirm changing your email to ${newEmail}.`,
+    heading: "Confirm your email change",
+    paragraphs: [
+      `Hi ${name}, you asked to change the email for your ${siteName} account to ${newEmail}.`,
+      "Confirm it here, then open the link we send to the new address to finish.",
+    ],
+    action: { label: "Confirm the change", url },
+    footnote:
+      "This link expires in 24 hours. If you didn't ask for this, ignore this email; nothing changes. Consider changing your password.",
+  });
+}
+
+/** Step 2 of an email change: sent to the new address. */
+export function newEmailMessage({
+  siteName,
+  name,
+  url,
+}: {
+  siteName: string;
+  name: string;
+  url: string;
+}) {
+  return render({
+    siteName,
+    subject: `Verify your new email for ${siteName}`,
+    preview: "One click to start using this address.",
+    heading: "Verify your new email",
+    paragraphs: [
+      `Hi ${name}, confirm this is the new email address for your ${siteName} account.`,
+      "Until you do, we'll keep using your old one.",
+    ],
+    action: { label: "Use this email", url },
+    footnote:
+      "This link expires in 24 hours. If you didn't ask for this, you can ignore this email.",
+  });
+}

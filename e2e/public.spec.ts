@@ -3,6 +3,8 @@ import { hashPassword } from "better-auth/crypto";
 
 import { sql } from "./db";
 import { linkIn, waitForEmail } from "./emails";
+import { submitWhenReady } from "./forms";
+import { randomPassword } from "./passwords";
 
 test.describe("public site", () => {
   test("home links through to the archive and a post", async ({ page }) => {
@@ -95,14 +97,17 @@ test.describe("auth", () => {
       page.getByRole("heading", { name: "Forgot your password?" }),
     ).toBeVisible();
     await page.getByLabel("Email").fill(email);
-    await page.getByRole("button", { name: "Send reset link" }).click();
+    await submitWhenReady(
+      page.getByRole("button", { name: "Send reset link" }),
+    );
     await expect(page.getByText("Check your email")).toBeVisible();
 
     const mail = await waitForEmail(email, "reset-password", stamp);
     await page.goto(linkIn(mail));
     await expect(page).toHaveURL(/\/reset-password\?token=/);
-    await page.getByLabel("New password").fill("e2e-new-password");
-    await page.getByLabel("Confirm password").fill("e2e-new-password");
+    const newPassword = randomPassword();
+    await page.getByLabel("New password").fill(newPassword);
+    await page.getByLabel("Confirm password").fill(newPassword);
     await page.getByRole("button", { name: "Save new password" }).click();
     await expect(page.getByText("Password updated")).toBeVisible();
 
@@ -111,7 +116,7 @@ test.describe("auth", () => {
       page.getByRole("heading", { name: "Welcome back" }),
     ).toBeVisible();
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("e2e-new-password");
+    await page.getByLabel("Password").fill(newPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(`${baseURL}/`);
   });

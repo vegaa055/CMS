@@ -4,22 +4,46 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
-import { eq } from "drizzle-orm";
+import { captcha, haveIBeenPwned } from "better-auth/plugins";
+import { and, count, eq, like } from "drizzle-orm";
 
 import { siteConfig } from "@/config/site";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { env } from "@/env";
 import { runAfterResponse } from "@/lib/background";
+import { revalidatePublicSite } from "@/lib/revalidate";
 import { getReaderSettings } from "@/lib/settings";
 
-import { sendPasswordResetLink, sendVerificationLink } from "./emails";
+import {
+  sendEmailChangeConfirmation,
+  sendPasswordResetLink,
+  sendVerificationLink,
+} from "./emails";
 import { inviteContext } from "./invite-context";
 import { withWwwVariant } from "./origins";
+import { isRole, isStaff } from "./permissions";
 
 export const githubEnabled = Boolean(
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
 );
+
+/**
+ * Cloudflare Turnstile guards sign-up and password reset when both keys are
+ * set. Forms render the widget only with this site key, so the two can't
+ * disagree.
+ */
+export const captchaSiteKey =
+  env.TURNSTILE_SECRET_KEY && env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    ? env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    : undefined;
+const CAPTCHA_ENDPOINTS = ["/sign-up/email", "/request-password-reset"];
+
+/** Hooks get the core user type; our `role` field is there at runtime. */
+function roleOf(user: object) {
+  const role = (user as { role?: unknown }).role;
+  return isRole(role) ? role : undefined;
+}
 
 async function hasAdmin() {
   const [row] = await db
@@ -62,6 +86,10 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   // Neon's HTTP driver has no interactive transactions.
   database: drizzleAdapter(db, { provider: "pg", schema, transaction: false }),
+  // Its client API would let anyone set their own avatar URL (e.g. a
+  // tracking pixel shown to admins); profiles change only through our
+  // validated server actions.
+  disabledPaths: ["/update-user"],
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 10,
@@ -102,6 +130,45 @@ export const auth = betterAuth({
       username: { type: "string", required: false, input: false },
       bio: { type: "string", required: false, input: false },
     },
+    // A verified address is confirmed from the old inbox first, then the
+    // new one; an unverified address only needs the new inbox.
+    changeEmail: {
+      enabled: true,
+      sendChangeEmailConfirmation: ({ user, newEmail, url }) =>
+        sendEmailChangeConfirmation(user, newEmail, url),
+    },
+    // Deleting takes the password (or, without one, a session under a day
+    // old). Sessions and sign-in accounts cascade; posts and uploads stay,
+    // unattributed.
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (user) => {
+        if (roleOf(user) !== "admin") return;
+        const [admins] = await db
+          .select({ value: count() })
+          .from(schema.user)
+          .where(eq(schema.user.role, "admin"));
+        if ((admins?.value ?? 0) <= 1) {
+          throw new APIError("BAD_REQUEST", {
+            message:
+              "You're the only admin. Make someone else an admin before deleting your account.",
+          });
+        }
+      },
+      afterDelete: async (user) => {
+        // Per-recipient email limits (app:email:<kind>:<user id>).
+        await db
+          .delete(schema.rateLimit)
+          .where(
+            and(
+              like(schema.rateLimit.key, "app:email:%"),
+              like(schema.rateLimit.key, `%:${user.id}`),
+            ),
+          );
+        // Their byline and author page, if they were on the team.
+        if (isStaff(roleOf(user))) revalidatePublicSite();
+      },
+    },
   },
   // Enabled in production. Stored in Postgres: in-memory counters are
   // per-instance on serverless and would barely limit anything.
@@ -114,6 +181,8 @@ export const auth = betterAuth({
       "/sign-up/email": { window: 60, max: 3 },
       "/change-password": { window: 60, max: 5 },
       "/reset-password": { window: 60, max: 5 },
+      // Checks the password, so it mustn't allow guessing.
+      "/delete-user": { window: 60, max: 5 },
       // Built in: reset and verification requests are limited to 3 per
       // minute per IP; `./emails` also caps them per recipient.
     },
@@ -154,7 +223,32 @@ export const auth = betterAuth({
       },
     },
   },
-  plugins: [nextCookies()], // must stay last
+  plugins: [
+    ...(captchaSiteKey
+      ? [
+          captcha({
+            provider: "cloudflare-turnstile",
+            secretKey: env.TURNSTILE_SECRET_KEY!,
+            endpoints: CAPTCHA_ENDPOINTS,
+          }),
+        ]
+      : []),
+    // Rejects passwords found in data breaches (only a 5-character hash
+    // prefix is sent to Have I Been Pwned). Off in unit/integration tests,
+    // which shouldn't depend on an outside service.
+    haveIBeenPwned({
+      enabled: env.NODE_ENV !== "test",
+      paths: [
+        "/sign-up/email",
+        "/change-password",
+        "/reset-password",
+        "/set-password",
+      ],
+      customPasswordCompromisedMessage:
+        "This password has appeared in a data breach. Please choose a different one.",
+    }),
+    nextCookies(), // must stay last
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;

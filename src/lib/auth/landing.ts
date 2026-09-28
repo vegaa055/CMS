@@ -55,3 +55,12 @@ export function continueUrl(next?: string) {
     ? `/auth/continue?next=${encodeURIComponent(next)}`
     : "/auth/continue";
 }
+
+/**
+ * Where email-change links land: "sent" after confirming from the old inbox
+ * (one more link is on its way to the new one), "done" once the new address
+ * is verified. /account shows the matching message.
+ */
+export function emailChangeUrl(step: "sent" | "done") {
+  return `/account?emailChange=${step}`;
+}

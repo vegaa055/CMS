@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { RegisterForm } from "@/components/auth/register-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { githubEnabled, registrationMode } from "@/lib/auth";
+import { captchaSiteKey, githubEnabled, registrationMode } from "@/lib/auth";
 import { landingPath, nextParam } from "@/lib/auth/landing";
 import { getSession } from "@/lib/auth/session";
 import { getSiteSettings } from "@/lib/settings";
@@ -49,7 +49,11 @@ export default async function RegisterPage({
           </AlertDescription>
         </Alert>
       ) : (
-        <RegisterForm next={next} githubEnabled={githubEnabled} />
+        <RegisterForm
+          next={next}
+          githubEnabled={githubEnabled}
+          captchaSiteKey={captchaSiteKey}
+        />
       )}
 
       <p className="text-muted-foreground text-center text-sm">

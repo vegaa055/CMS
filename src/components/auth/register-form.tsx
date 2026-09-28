@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { GitHubButton } from "@/components/auth/github-button";
+import { useCaptcha } from "@/components/auth/turnstile";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -63,13 +64,17 @@ const fields: {
 export function RegisterForm({
   next,
   githubEnabled,
+  captchaSiteKey,
 }: {
   /** Page to return to after signing up (already validated). */
   next?: string;
   githubEnabled: boolean;
+  /** Turnstile site key, when sign-up has a bot check. */
+  captchaSiteKey?: string;
 }) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
+  const captcha = useCaptcha(captchaSiteKey, "sign-up");
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
@@ -77,14 +82,21 @@ export function RegisterForm({
 
   async function onSubmit({ name, email, password }: Values) {
     setFormError(null);
-    const { error } = await signUp.email({
-      name,
-      email,
-      password,
-      // Where the link in the confirmation email lands.
-      callbackURL: verifyEmailUrl(next),
-    });
+    const { error } = await signUp.email(
+      {
+        name,
+        email,
+        password,
+        // Where the link in the confirmation email lands.
+        callbackURL: verifyEmailUrl(next),
+      },
+      { headers: captcha.headers },
+    );
     if (error) {
+      captcha.reset();
+      if (error.code === "PASSWORD_COMPROMISED") {
+        form.setError("password", { message: "Found in a data breach" });
+      }
       setFormError(error.message ?? "Could not create account");
       return;
     }
@@ -125,11 +137,20 @@ export function RegisterForm({
             )}
           />
         ))}
+        {captcha.widget}
         {formError && <FieldError>{formError}</FieldError>}
-        <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={form.formState.isSubmitting || !captcha.ready}
+        >
           {form.formState.isSubmitting && <Loader2 className="animate-spin" />}
           Create account
         </Button>
+        <FieldDescription className="text-center">
+          We keep your name and email only to run your account, and never share
+          them. You can delete your account at any time from your account page.
+        </FieldDescription>
       </FieldGroup>
     </form>
   );

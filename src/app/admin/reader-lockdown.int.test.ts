@@ -55,8 +55,11 @@ const modules = {
   users: userActions,
 };
 
-/** Exports readers may call: they only affect the caller's own account. */
-const READER_ALLOWED = new Set(["profile.changePassword"]);
+/**
+ * Exports readers may call because they only affect the caller's own
+ * account (none today: account actions live in src/app/(site)/account).
+ */
+const READER_ALLOWED = new Set<string>();
 
 const ids = {
   post: crypto.randomUUID(),

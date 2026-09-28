@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
+import { captchaSiteKey } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Forgot password",
@@ -19,7 +20,7 @@ export default function ForgotPasswordPage() {
           Enter your email and we&apos;ll send you a link to choose a new one.
         </p>
       </div>
-      <ForgotPasswordForm />
+      <ForgotPasswordForm captchaSiteKey={captchaSiteKey} />
       <p className="text-muted-foreground text-center text-sm">
         Remembered it?{" "}
         <Link

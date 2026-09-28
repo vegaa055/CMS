@@ -46,6 +46,10 @@ jobs:
       STORAGE_DRIVER: local
       # Emails go to ./.emails, where the e2e tests read their links.
       EMAIL_DRIVER: console
+      # Cloudflare's public always-pass Turnstile test keys, so e2e runs the
+      # real bot-check flow (they only ever accept dummy tokens).
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
       BRANCH_NAME: ci-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v7

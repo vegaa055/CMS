@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 import { sql } from "../db";
 import { linkIn, waitForEmail } from "../emails";
+import { submitWhenReady } from "../forms";
+import { randomPassword } from "../passwords";
 
 const SETTING = "readers.signupEnabled";
 let original: unknown;
@@ -48,9 +50,10 @@ test("readers sign up, stay out of the dashboard, and can be promoted", async ({
   await expect(reader.getByText(/as a reader/)).toBeVisible();
   await reader.getByLabel("Name").fill(name);
   await reader.getByLabel("Email").fill(email);
-  await reader.getByLabel("Password", { exact: true }).fill("e2e-reader-pw-1");
-  await reader.getByLabel("Confirm password").fill("e2e-reader-pw-1");
-  await reader.getByRole("button", { name: "Create account" }).click();
+  const password = randomPassword();
+  await reader.getByLabel("Password", { exact: true }).fill(password);
+  await reader.getByLabel("Confirm password").fill(password);
+  await submitWhenReady(reader.getByRole("button", { name: "Create account" }));
   await expect(reader).toHaveURL(`${baseURL}/posts`);
 
   // The confirmation email's link verifies them and leads back to /posts.

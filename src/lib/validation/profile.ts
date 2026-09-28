@@ -44,3 +44,21 @@ export const passwordSchema = z
   });
 
 export type PasswordInput = z.infer<typeof passwordSchema>;
+
+/** The display name anyone can change from their account page. */
+export const accountNameSchema = z.object({ name: profileSchema.shape.name });
+
+export type AccountNameInput = z.input<typeof accountNameSchema>;
+
+/** A first password for an account that has only signed in with GitHub. */
+export const newPasswordSchema = z
+  .object({
+    newPassword: z.string().min(10, "Use at least 10 characters").max(128),
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+export type NewPasswordInput = z.infer<typeof newPasswordSchema>;

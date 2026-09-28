@@ -32,10 +32,16 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().optional(),
     /** Sender address on a domain verified in Resend, e.g. hello@example.com. */
     EMAIL_FROM: z.email().optional(),
+    /**
+     * Cloudflare Turnstile secret. With NEXT_PUBLIC_TURNSTILE_SITE_KEY, it
+     * puts a bot check on sign-up and password reset; unset, there's none.
+     */
+    TURNSTILE_SECRET_KEY: z.string().optional(),
   },
   client: {
     // Optional: see resolveAppUrl() in src/config/site.ts.
     NEXT_PUBLIC_APP_URL: z.url().optional(),
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
@@ -52,7 +58,9 @@ export const env = createEnv({
     EMAIL_DRIVER: process.env.EMAIL_DRIVER,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM: process.env.EMAIL_FROM,
+    TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
   },
   emptyStringAsUndefined: true,
   // Lets CI lint/typecheck without real secrets.

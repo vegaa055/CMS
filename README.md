@@ -57,12 +57,16 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
   dashboard access
 - Profiles with avatars and public author pages; editable site settings
 - Email (Resend): password reset for everyone, email confirmation for readers
+- Reader accounts page: display name, email change, password, signed-in devices, and account
+  deletion; an account menu in the site header
 
 **Quality**
 
 - Unit, database integration, and Playwright end-to-end tests
 - CI runs everything against a fresh, disposable Neon database branch per run
 - Rate-limited auth, security headers, sanitized content, no unsafe HTML
+- Optional Cloudflare Turnstile bot check on sign-up and password reset; passwords found in
+  data breaches are rejected (Have I Been Pwned, k-anonymity)
 
 ## Tech stack
 
@@ -150,11 +154,11 @@ local disk storage until you
 
 ## Testing
 
-| Layer       | Tool       | What it covers                                                                                                                                                                                                 |
-| ----------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                           |
-| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, settings, public read models), plus a sweep proving readers are refused by every dashboard action |
-| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, public pages, headers                                                                      |
+| Layer       | Tool       | What it covers                                                                                                                                                                                                                                                        |
+| ----------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                                                                                  |
+| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, email flows, account self-service, settings, public read models), plus a sweep proving readers are refused by every dashboard action                     |
+| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, a reader's whole journey (sign-up with the bot check and breach check → confirm email → account → reset password → delete), public pages, headers |
 
 Integration and e2e tests create their own `int-*` / `e2e-*` data and remove it afterwards, so
 they can run against a development database.
@@ -180,6 +184,7 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
    | `STORAGE_DRIVER`                                                                          | `r2`                                                                                                     |
    | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | From Cloudflare                                                                                          |
    | `EMAIL_DRIVER`, `RESEND_API_KEY`, `EMAIL_FROM`                                            | `resend`, your Resend API key, and a sender on your verified domain ([Email](#email))                    |
+   | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`                                  | Optional: a Cloudflare Turnstile widget for your domain                                                  |
 
    Preview deployments work without extra configuration (auth trusts the deployment URL); point
    their `DATABASE_URL` at a non-production branch.
@@ -202,6 +207,15 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
   resetting signs the account out everywhere. New readers get a confirmation link; they can
   use the site right away, and a confirmed address will be required to comment. Invited team
   members count as confirmed.
+- **Accounts:** everyone signed in has **/account** (from the header's account menu): display
+  name, email change (confirmed from the old inbox, then the new one), password (or setting a
+  first one after GitHub-only sign-in), signing out other devices, and deleting the account
+  (password required; the last admin can't). Better Auth's `/update-user` endpoint is disabled,
+  so profile fields only change through validated server actions.
+- **Bots and weak passwords:** with `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`
+  set, sign-up and password reset require a Cloudflare Turnstile check (CI uses Cloudflare's
+  always-pass test keys). Passwords that appear in known breaches are refused on sign-up, reset,
+  and change; only a 5-character hash prefix is sent to Have I Been Pwned.
 - Roles are checked in every page and server action (`requireSession()` /
   `requirePermission()`); `src/proxy.ts` is only an optimistic redirect for signed-out visitors.
   Permissions are defined in `src/lib/auth/permissions.ts`.

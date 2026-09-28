@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { E2E } from "../db";
 import { linkIn, waitForEmail } from "../emails";
+import { randomPassword } from "../passwords";
 
 test("invite a user, who signs up and is then removed", async ({
   page,
@@ -33,10 +34,9 @@ test("invite a user, who signs up and is then removed", async ({
   await invitee.goto(link);
   await expect(invitee.getByLabel("Email")).toHaveValue(email);
   await invitee.getByLabel("Name").fill("E2E Invitee");
-  await invitee
-    .getByLabel("Password", { exact: true })
-    .fill("e2e-invitee-password");
-  await invitee.getByLabel("Confirm password").fill("e2e-invitee-password");
+  const password = randomPassword();
+  await invitee.getByLabel("Password", { exact: true }).fill(password);
+  await invitee.getByLabel("Confirm password").fill(password);
   await invitee.getByRole("button", { name: "Create account" }).click();
   await expect(invitee).toHaveURL(/\/admin$/);
 

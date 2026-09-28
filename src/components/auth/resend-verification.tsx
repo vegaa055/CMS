@@ -29,10 +29,13 @@ type Values = z.infer<typeof schema>;
 export function ResendVerification({
   email,
   next,
+  compact = false,
 }: {
   /** The signed-in user's address, if any. */
   email?: string;
   next?: string;
+  /** A small secondary button, for use inside other settings. */
+  compact?: boolean;
 }) {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -52,7 +55,7 @@ export function ResendVerification({
         error.status === 429
           ? "Too many requests. Try again in a minute."
           : error.code === "EMAIL_ALREADY_VERIFIED"
-            ? "Your email is already verified. Reload this page."
+            ? "Your email is already confirmed. Reload this page."
             : (error.message ?? "Couldn't send the link. Try again."),
       );
       return;
@@ -96,7 +99,13 @@ export function ResendVerification({
           />
         )}
         {formError && <FieldError>{formError}</FieldError>}
-        <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
+        <Button
+          type="submit"
+          size={compact ? "sm" : "lg"}
+          variant={compact ? "outline" : "default"}
+          className={compact ? "self-start" : undefined}
+          disabled={form.formState.isSubmitting}
+        >
           {form.formState.isSubmitting && <Loader2 className="animate-spin" />}
           Send a new link
         </Button>
