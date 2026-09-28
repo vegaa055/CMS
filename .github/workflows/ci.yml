@@ -60,6 +60,9 @@ jobs:
         run: |
           npx -y neonctl@6 branches create --project-id "$NEON_PROJECT_ID" \
             --name "$BRANCH_NAME" --parent ci-base --output json > /dev/null
+          # Mark it right away so the cleanup step runs even if a later
+          # command here fails.
+          echo "created=true" >> "$GITHUB_OUTPUT"
           url=$(npx -y neonctl@6 connection-string "$BRANCH_NAME" \
             --project-id "$NEON_PROJECT_ID" --database-name folio --pooled)
           echo "::add-mask::$url"
@@ -67,7 +70,6 @@ jobs:
           secret=$(openssl rand -base64 32)
           echo "::add-mask::$secret"
           echo "BETTER_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
-          echo "created=true" >> "$GITHUB_OUTPUT"
 
       - name: Migrate (from empty) and seed
         run: |
@@ -95,6 +97,21 @@ jobs:
 
       - name: Delete database branch
         if: always() && steps.neon.outputs.created == 'true'
+        # Retried with backoff: a transient Neon API error once left a branch
+        # behind. Succeeds as soon as the branch is confirmed gone.
         run: |
-          npx -y neonctl@6 branches delete "$BRANCH_NAME" \
-            --project-id "$NEON_PROJECT_ID"
+          gone() {
+            npx -y neonctl@6 branches list --project-id "$NEON_PROJECT_ID" \
+              --output json | jq -e --arg name "$BRANCH_NAME" \
+              '(.branches? // .) | map(select(.name == $name)) | length == 0' \
+              > /dev/null
+          }
+          for attempt in 1 2 3 4; do
+            npx -y neonctl@6 branches delete "$BRANCH_NAME" \
+              --project-id "$NEON_PROJECT_ID" && exit 0
+            gone && exit 0
+            echo "Delete failed (attempt $attempt); retrying in $((attempt * 15))s"
+            sleep $((attempt * 15))
+          done
+          echo "::error::Neon branch $BRANCH_NAME was not deleted"
+          exit 1
