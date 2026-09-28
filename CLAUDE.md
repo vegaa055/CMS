@@ -34,3 +34,4 @@
 - E2E: Playwright (`e2e/`), runs against a running dev server locally or `next start` in CI; global setup creates an `e2e-admin` with a random password. Scope locators to `main` (production streaming briefly duplicates DOM in a hidden container).
 - CI: `.github/workflows/ci.yml` forks ephemeral Neon branches from the empty `ci-base` branch (never from `main`/`dev`). Don't write to `ci-base`.
 - Storage tests: media int tests pin the local driver; `src/lib/storage/r2.int.test.ts` hits live R2 only when STORAGE_DRIVER=r2. E2E uploads use realistic images (a 1x1 PNG becomes an AVIF the browser won't decode).
+- Production: https://www.astral-vega.com (apex redirects to www; DNS on Vercel, so no R2 custom domain; media served from r2.dev). `NEXT_PUBLIC_APP_URL` in Vercel must equal the canonical origin, and R2 CORS must list every origin that uploads.

@@ -12,6 +12,7 @@ import * as schema from "@/db/schema";
 import { env } from "@/env";
 
 import { inviteContext } from "./invite-context";
+import { withWwwVariant } from "./origins";
 
 export const githubEnabled = Boolean(
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
@@ -38,9 +39,14 @@ export async function isRegistrationOpen() {
 export const auth = betterAuth({
   appName: siteConfig.name,
   baseURL: siteConfig.url,
-  // Also accept the deployment's own URLs (Vercel previews).
+  // Also accept the deployment's own URLs (per-deployment and branch URLs
+  // for previews) and both the apex and www forms of the production domain,
+  // since one usually redirects to the other.
   trustedOrigins: [
-    siteConfig.url,
+    ...withWwwVariant(siteConfig.url),
+    ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? withWwwVariant(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
+      : []),
     ...[process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
       .filter(Boolean)
       .map((host) => `https://${host}`),

@@ -5,6 +5,8 @@
 A modern, general-purpose CMS: a fast public site for writing and a polished admin dashboard for
 running it. Built with Next.js 16, Postgres, and a dark-first design system.
 
+**Live site:** [www.astral-vega.com](https://www.astral-vega.com)
+
 > **Folio** is a placeholder name. Admins can rename the site in **Settings**; the defaults live in
 > [`src/config/site.ts`](src/config/site.ts).
 
@@ -165,13 +167,13 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
 2. **Media** — set up an R2 bucket (below) and add your production origin to its CORS policy.
 3. **Vercel project** — import the repo and set these environment variables:
 
-   | Variable                                                                                  | Value                                                         |
-   | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-   | `DATABASE_URL`                                                                            | Neon `main` pooled connection string                          |
-   | `BETTER_AUTH_SECRET`                                                                      | New random value: `openssl rand -base64 32`                   |
-   | `NEXT_PUBLIC_APP_URL`                                                                     | Your production URL (optional; defaults to the Vercel domain) |
-   | `STORAGE_DRIVER`                                                                          | `r2`                                                          |
-   | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | From Cloudflare                                               |
+   | Variable                                                                                  | Value                                                                                                    |
+   | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+   | `DATABASE_URL`                                                                            | Neon `main` pooled connection string                                                                     |
+   | `BETTER_AUTH_SECRET`                                                                      | New random value: `openssl rand -base64 32`                                                              |
+   | `NEXT_PUBLIC_APP_URL`                                                                     | Your canonical URL exactly as served, e.g. `https://www.astral-vega.com` (defaults to the Vercel domain) |
+   | `STORAGE_DRIVER`                                                                          | `r2`                                                                                                     |
+   | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | From Cloudflare                                                                                          |
 
    Preview deployments work without extra configuration (auth trusts the deployment URL); point
    their `DATABASE_URL` at a non-production branch.
@@ -218,6 +220,11 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
 | `r2`             | Cloudflare R2 bucket (public URL)    | Previews and production |
 
 Accepted: JPEG, PNG, WebP, GIF, AVIF up to 10 MB (SVG is excluded because it can carry scripts).
+
+Cloudflare rate-limits `r2.dev` URLs and intends them for development. For heavier production
+traffic, connect a custom domain to the bucket (e.g. `media.example.com`; this requires the
+domain's DNS to be on Cloudflare) and update `R2_PUBLIC_URL`. Stored media URLs are absolute, so
+existing files keep their old URLs until rewritten.
 
 **Setting up Cloudflare R2**
 
