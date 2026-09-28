@@ -20,7 +20,7 @@ jobs:
       # Static checks don't need real secrets.
       SKIP_ENV_VALIDATION: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -46,7 +46,7 @@ jobs:
       STORAGE_DRIVER: local
       BRANCH_NAME: ci-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
