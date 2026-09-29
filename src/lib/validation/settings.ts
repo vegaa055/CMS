@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { COMMENT_MODERATION } from "@/lib/comments";
+
 const optionalUrl = z
   .string()
   .trim()
@@ -33,6 +35,16 @@ export const readerSettingsSchema = z.object({
 });
 
 export type ReaderSettings = z.infer<typeof readerSettingsSchema>;
+
+/** Comments (stored under `comments.*`). */
+export const commentSettingsSchema = z.object({
+  /** Site-wide: when off, existing comments stay visible but read-only. */
+  enabled: z.boolean(),
+  /** Which new reader comments wait for a moderator. */
+  moderation: z.enum(COMMENT_MODERATION),
+});
+
+export type CommentSettings = z.infer<typeof commentSettingsSchema>;
 
 export const SOCIAL_LINKS = [
   { key: "github", label: "GitHub" },

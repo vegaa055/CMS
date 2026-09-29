@@ -12,7 +12,8 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { env } from "@/env";
 import { runAfterResponse } from "@/lib/background";
-import { revalidatePublicSite } from "@/lib/revalidate";
+import { getCommentedPostSlugs } from "@/lib/queries/comments";
+import { revalidatePost, revalidatePublicSite } from "@/lib/revalidate";
 import { getReaderSettings } from "@/lib/settings";
 
 import {
@@ -44,6 +45,12 @@ function roleOf(user: object) {
   const role = (user as { role?: unknown }).role;
   return isRole(role) ? role : undefined;
 }
+
+/**
+ * Posts showing a departing user's comments, noted before the account goes
+ * (their comments stay, credited to "Deleted reader") and refreshed after.
+ */
+const commentedPostsOf = new Map<string, string[]>();
 
 async function hasAdmin() {
   const [row] = await db
@@ -138,22 +145,24 @@ export const auth = betterAuth({
         sendEmailChangeConfirmation(user, newEmail, url),
     },
     // Deleting takes the password (or, without one, a session under a day
-    // old). Sessions and sign-in accounts cascade; posts and uploads stay,
-    // unattributed.
+    // old). Sessions, sign-in accounts, and likes cascade; posts, uploads,
+    // and comments stay, unattributed.
     deleteUser: {
       enabled: true,
       beforeDelete: async (user) => {
-        if (roleOf(user) !== "admin") return;
-        const [admins] = await db
-          .select({ value: count() })
-          .from(schema.user)
-          .where(eq(schema.user.role, "admin"));
-        if ((admins?.value ?? 0) <= 1) {
-          throw new APIError("BAD_REQUEST", {
-            message:
-              "You're the only admin. Make someone else an admin before deleting your account.",
-          });
+        if (roleOf(user) === "admin") {
+          const [admins] = await db
+            .select({ value: count() })
+            .from(schema.user)
+            .where(eq(schema.user.role, "admin"));
+          if ((admins?.value ?? 0) <= 1) {
+            throw new APIError("BAD_REQUEST", {
+              message:
+                "You're the only admin. Make someone else an admin before deleting your account.",
+            });
+          }
         }
+        commentedPostsOf.set(user.id, await getCommentedPostSlugs(user.id));
       },
       afterDelete: async (user) => {
         // Their per-person limits (app:email:<kind>:<id>, app:like:<id>).
@@ -165,8 +174,12 @@ export const auth = betterAuth({
               like(schema.rateLimit.key, `%:${user.id}`),
             ),
           );
-        // Their byline and author page, if they were on the team.
+        // Their byline and author page, if they were on the team; otherwise
+        // just the posts their comments are on.
+        const commented = commentedPostsOf.get(user.id) ?? [];
+        commentedPostsOf.delete(user.id);
         if (isStaff(roleOf(user))) revalidatePublicSite();
+        else commented.forEach(revalidatePost);
       },
     },
   },

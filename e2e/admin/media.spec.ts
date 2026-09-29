@@ -1,5 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import sharp from "sharp";
+
+import { expect, test } from "../fixtures";
 
 // A realistic image: a 1x1 PNG is converted to an AVIF the browser won't
 // decode, which would make the thumbnail check below meaningless.

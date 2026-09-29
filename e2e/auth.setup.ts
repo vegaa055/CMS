@@ -1,8 +1,7 @@
 import { readFile } from "node:fs/promises";
 
-import { expect, test as setup } from "@playwright/test";
-
 import { E2E } from "./db";
+import { expect, test as setup } from "./fixtures";
 
 /** Sign in through the real login form once and reuse the session. */
 setup("sign in as the e2e admin", async ({ page }) => {

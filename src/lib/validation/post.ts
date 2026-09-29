@@ -33,6 +33,8 @@ export const savePostSchema = z.object({
   seoDescription: optionalText(160),
   status: z.enum(POST_STATUSES),
   publishedAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  /** Readers may comment (when comments are on in Settings). Kept if omitted. */
+  commentsEnabled: z.boolean().optional(),
 });
 
 export type SavePostInput = z.input<typeof savePostSchema>;

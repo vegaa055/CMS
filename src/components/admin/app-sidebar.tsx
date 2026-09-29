@@ -13,6 +13,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -20,12 +21,17 @@ import {
 import { adminNav, findNavItem } from "@/config/admin-nav";
 import { can } from "@/lib/auth/permissions";
 
+export type SidebarBadge = { count: number; label: string };
+
 export function AppSidebar({
   user,
   siteName,
+  badges = {},
 }: {
   user: NavUserProps["user"];
   siteName: string;
+  /** Counts shown next to nav items, keyed by href (e.g. pending comments). */
+  badges?: Record<string, SidebarBadge>;
 }) {
   const pathname = usePathname();
   const active = findNavItem(pathname);
@@ -67,20 +73,39 @@ export function AppSidebar({
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active?.href === item.href}
-                      tooltip={item.title}
-                    >
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {group.items.map((item) => {
+                  const badge = badges[item.href];
+                  const count = badge && badge.count > 0 ? badge : null;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active?.href === item.href}
+                        tooltip={
+                          count ? `${item.title} (${count.count})` : item.title
+                        }
+                      >
+                        <Link href={item.href}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                          {count && (
+                            <span className="sr-only">
+                              ({count.count} {count.label})
+                            </span>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                      {count && (
+                        <SidebarMenuBadge
+                          aria-hidden
+                          className="bg-primary text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-active/menu-button:text-primary-foreground"
+                        >
+                          {count.count > 99 ? "99+" : count.count}
+                        </SidebarMenuBadge>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

@@ -1,5 +1,5 @@
 /** Public read models against the real DB. Run with `npm run test:int`. */
-import { like } from "drizzle-orm";
+import { eq, like, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { db } from "@/db";
@@ -156,10 +156,14 @@ describe("public queries", () => {
 
   it("finds adjacent and related posts", async () => {
     const middle = (await getLivePostBySlug(`${P}-middle`))!;
-    const adjacent = await getAdjacentPosts({
-      id: middle.id,
-      publishedAt: middle.publishedAt!,
-    });
+    // Timestamps written by SQL keep microseconds, which a JS Date drops.
+    await db
+      .update(posts)
+      .set({
+        publishedAt: sql`${posts.publishedAt} + interval '123 microseconds'`,
+      })
+      .where(eq(posts.id, middle.id));
+    const adjacent = await getAdjacentPosts(middle.id);
     expect(adjacent.older?.slug).toBe(`${P}-oldest`);
     expect(adjacent.newer?.slug).toBe(`${P}-due`);
 

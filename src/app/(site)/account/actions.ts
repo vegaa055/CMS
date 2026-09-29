@@ -16,7 +16,8 @@ import {
 import { auth } from "@/lib/auth";
 import { isStaff } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
-import { revalidatePublicSite } from "@/lib/revalidate";
+import { getCommentedPostSlugs } from "@/lib/queries/comments";
+import { revalidatePost, revalidatePublicSite } from "@/lib/revalidate";
 import {
   accountNameSchema,
   newPasswordSchema,
@@ -54,8 +55,13 @@ export async function updateName(raw: unknown): Promise<ActionResult> {
     .set({ name: parsed.data.name })
     .where(eq(user.id, session.user.id));
   revalidatePath("/account");
-  // Team members' names appear in bylines.
+  // Team members' names appear in bylines; everyone's, on their comments.
   if (isStaff(session.user.role)) revalidatePublicSite();
+  else {
+    for (const slug of await getCommentedPostSlugs(session.user.id)) {
+      revalidatePost(slug);
+    }
+  }
   return ok(null);
 }
 

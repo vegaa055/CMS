@@ -1,6 +1,12 @@
 "use client";
 
-import { Heart, LayoutDashboard, LogOut, UserRound } from "lucide-react";
+import {
+  Heart,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -80,6 +86,11 @@ export function AccountMenu() {
         <DropdownMenuItem asChild>
           <Link href="/account/likes">
             <Heart /> Liked stories
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/account/comments">
+            <MessageSquare /> Your comments
           </Link>
         </DropdownMenuItem>
         {staff && (

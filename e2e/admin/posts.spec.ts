@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../fixtures";
 
 test("write, publish, view, and delete a post", async ({ page }) => {
   const stamp = Date.now();

@@ -25,6 +25,7 @@ const PERMISSIONS = {
   "tag:manage": ["admin", "editor"],
   "media:upload": ["admin", "editor", "author"],
   "media:delete:any": ["admin", "editor"],
+  "comment:moderate": ["admin", "editor"],
   "user:manage": ["admin"],
   "settings:manage": ["admin"],
 } as const satisfies Record<string, readonly Role[]>;

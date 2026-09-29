@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
 import { hashPassword } from "better-auth/crypto";
 
 import { sql } from "./db";
+import { expect, test } from "./fixtures";
 import { randomPassword } from "./passwords";
 
 /**
@@ -57,6 +57,8 @@ test("readers like posts and find them under Liked stories", async ({
     name: /^Unlike this post \(1 like\)/,
   });
   await expect(unlike).toHaveAttribute("aria-pressed", "true");
+  // The heart updates at once; wait for the server before reloading.
+  await expect(unlike).toHaveAttribute("aria-busy", "false");
   await page.reload();
   await expect(unlike).toBeVisible();
 

@@ -75,7 +75,9 @@ export function DeleteAccountCard({
         <CardTitle>Delete account</CardTitle>
         <CardDescription>
           Permanently deletes your account and signs you out everywhere.
-          {staff && " Your posts stay published without an author."}
+          {staff && " Your posts stay published without an author."} Your
+          comments stay, credited to &ldquo;Deleted reader&rdquo;; delete any
+          you&apos;d rather remove first.
         </CardDescription>
         <CardAction>
           <Button variant="destructive" size="sm" onClick={() => setOpen(true)}>

@@ -33,7 +33,7 @@ export function LikeButton({ postId, path }: { postId: string; path: string }) {
       ? { ...current, liked, count: current.count + (liked ? 1 : -1) }
       : current,
   );
-  const [, startTransition] = useTransition();
+  const [saving, startTransition] = useTransition();
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +113,8 @@ export function LikeButton({ postId, path }: { postId: string; path: string }) {
       size="sm"
       onClick={toggle}
       aria-pressed={liked}
+      // Shown right away; busy until the server has it.
+      aria-busy={saving}
       aria-label={`${liked ? "Unlike" : "Like"} this post (${likesLabel(shown.count)})`}
     >
       <Heart className={cn(liked && "text-primary fill-current")} />

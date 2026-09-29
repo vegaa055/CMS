@@ -1,21 +1,24 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, MessageSquare } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { PostArticle } from "@/components/content/post-article";
+import { Comments } from "@/components/site/comments/comments";
 import { LikeButton } from "@/components/site/like-button";
 import { PostListItem } from "@/components/site/post-list";
+import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { postPath } from "@/lib/posts/urls";
+import { getPostThread } from "@/lib/queries/comments";
 import {
   getAdjacentPosts,
   getLivePostBySlug,
   getLivePostSlugs,
   getRelatedPosts,
 } from "@/lib/queries/public";
-import { getSiteSettings } from "@/lib/settings";
+import { getCommentSettings, getSiteSettings } from "@/lib/settings";
 
 export const revalidate = 300;
 
@@ -97,14 +100,19 @@ export default async function PostPage({ params }: PageProps<"/posts/[slug]">) {
   const post = await getPost((await params).slug);
   if (!post) notFound();
 
-  const [adjacent, related, site] = await Promise.all([
-    getAdjacentPosts({ id: post.id, publishedAt: post.publishedAt! }),
+  const [adjacent, related, site, commentSettings, thread] = await Promise.all([
+    getAdjacentPosts(post.id),
     getRelatedPosts(
       post.id,
       post.postTags.map((pt) => pt.tag.id),
     ),
     getSiteSettings(),
+    getCommentSettings(),
+    getPostThread(post.id, post.authorId),
   ]);
+  // Closed comments still show the ones already there.
+  const commentsOpen = commentSettings.enabled && post.commentsEnabled;
+  const showComments = commentsOpen || thread.total > 0;
 
   return (
     <div className="flex flex-col gap-16">
@@ -112,7 +120,41 @@ export default async function PostPage({ params }: PageProps<"/posts/[slug]">) {
       <PostArticle post={post} linkTags />
       <div className="mx-auto -mt-8 flex w-full max-w-2xl items-center gap-3">
         <LikeButton postId={post.id} path={postPath(post.slug)} />
+        {showComments && (
+          <Button variant="ghost" size="sm" asChild>
+            <a
+              href="#comments"
+              aria-label={
+                thread.total > 0
+                  ? `${thread.total} ${thread.total === 1 ? "comment" : "comments"}`
+                  : "Comment on this post"
+              }
+            >
+              <MessageSquare />
+              {thread.total > 0 ? (
+                <span className="tabular-nums">{thread.total}</span>
+              ) : (
+                "Comment"
+              )}
+            </a>
+          </Button>
+        )}
       </div>
+
+      {showComments && (
+        <section
+          id="comments"
+          aria-labelledby="comments-heading"
+          className="mx-auto flex w-full max-w-2xl scroll-mt-20 flex-col gap-6"
+        >
+          <Comments
+            postId={post.id}
+            path={postPath(post.slug)}
+            open={commentsOpen}
+            thread={thread.comments}
+          />
+        </section>
+      )}
 
       {(adjacent.older || adjacent.newer) && (
         <nav

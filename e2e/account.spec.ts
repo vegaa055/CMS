@@ -1,7 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import { sql } from "./db";
 import { linkIn, waitForEmail } from "./emails";
+import { expect, test } from "./fixtures";
 import { submitWhenReady } from "./forms";
 import { randomPassword } from "./passwords";
 

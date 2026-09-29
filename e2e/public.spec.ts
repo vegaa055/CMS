@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
 import { hashPassword } from "better-auth/crypto";
 
 import { sql } from "./db";
 import { linkIn, waitForEmail } from "./emails";
+import { expect, test } from "./fixtures";
 import { submitWhenReady } from "./forms";
 import { randomPassword } from "./passwords";
 

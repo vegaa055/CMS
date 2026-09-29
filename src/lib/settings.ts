@@ -8,8 +8,10 @@ import { siteConfig } from "@/config/site";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import {
+  commentSettingsSchema,
   readerSettingsSchema,
   siteSettingsSchema,
+  type CommentSettings,
   type ReaderSettings,
   type SiteSettings,
 } from "@/lib/validation/settings";
@@ -118,3 +120,21 @@ const readerSettings = settingsGroup(
 /** Reader accounts: whether the public can sign up. */
 export const getReaderSettings = readerSettings.get;
 export const saveReaderSettings = readerSettings.save;
+
+/**
+ * Comments start off; admins turn them on in Settings. By default a
+ * reader's first comment waits for approval and later ones publish.
+ */
+export const DEFAULT_COMMENT_SETTINGS: CommentSettings = {
+  enabled: false,
+  moderation: "first",
+};
+
+const commentSettings = settingsGroup(
+  "comments",
+  commentSettingsSchema,
+  DEFAULT_COMMENT_SETTINGS,
+);
+
+export const getCommentSettings = commentSettings.get;
+export const saveCommentSettings = commentSettings.save;

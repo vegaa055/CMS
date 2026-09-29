@@ -53,12 +53,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { RichTextDoc } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
@@ -80,6 +82,7 @@ export type PostEditorPost = {
   seoTitle: string | null;
   seoDescription: string | null;
   coverImage: CoverImage | null;
+  commentsEnabled: boolean;
   status: PostStatus;
   publishedAt: string | null;
   updatedAt: string;
@@ -112,6 +115,7 @@ const formSchema = z.object({
   coverImage: z
     .object({ id: z.string(), url: z.string(), alt: z.string().nullable() })
     .nullable(),
+  commentsEnabled: z.boolean(),
   scheduleAt: z.string(),
 });
 type FormValues = z.infer<typeof formSchema>;
@@ -288,6 +292,7 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
       seoTitle: post?.seoTitle ?? "",
       seoDescription: post?.seoDescription ?? "",
       coverImage: post?.coverImage ?? null,
+      commentsEnabled: post?.commentsEnabled ?? true,
       scheduleAt:
         post?.status === "scheduled" ? toDateTimeLocal(post.publishedAt) : "",
     },
@@ -376,6 +381,7 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
             seoTitle: values.seoTitle,
             seoDescription: values.seoDescription,
             coverImageId: values.coverImage?.id ?? null,
+            commentsEnabled: values.commentsEnabled,
             status,
             publishedAt,
           });
@@ -804,6 +810,28 @@ export function PostEditor({ post, allTags, permissions }: PostEditorProps) {
                   />
                   <FieldError errors={[errors.tags]} />
                 </Field>
+                <Controller
+                  name="commentsEnabled"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Field orientation="horizontal">
+                      <FieldContent>
+                        <FieldLabel htmlFor="commentsEnabled">
+                          Allow comments
+                        </FieldLabel>
+                        <FieldDescription>
+                          When comments are on in Settings. Turning them off
+                          keeps existing ones visible.
+                        </FieldDescription>
+                      </FieldContent>
+                      <Switch
+                        id="commentsEnabled"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </Field>
+                  )}
+                />
               </FieldGroup>
             </CardContent>
           </Card>

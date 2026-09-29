@@ -9,6 +9,7 @@
 import { eq, inArray, like, or } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import * as commentActions from "@/app/admin/comments/actions";
 import * as mediaActions from "@/app/admin/media/actions";
 import * as postActions from "@/app/admin/posts/actions";
 import * as profileActions from "@/app/admin/profile/actions";
@@ -16,7 +17,15 @@ import * as settingsActions from "@/app/admin/settings/actions";
 import * as tagActions from "@/app/admin/tags/actions";
 import * as userActions from "@/app/admin/users/actions";
 import { db } from "@/db";
-import { invitation, media, posts, settings, tags, user } from "@/db/schema";
+import {
+  comments,
+  invitation,
+  media,
+  posts,
+  settings,
+  tags,
+  user,
+} from "@/db/schema";
 import { getSession } from "@/lib/auth/session";
 import { hashInviteToken, newInviteToken } from "@/lib/invites";
 import { DEFAULT_SITE_SETTINGS } from "@/lib/settings";
@@ -47,6 +56,7 @@ const READER = { id: `${P}-reader`, role: "reader" as const };
 const email = (id: string) => `${id}@folio.local`;
 
 const modules = {
+  comments: commentActions,
   media: mediaActions,
   posts: postActions,
   profile: profileActions,
@@ -66,6 +76,8 @@ const ids = {
   media: crypto.randomUUID(),
   tag: crypto.randomUUID(),
   invite: crypto.randomUUID(),
+  pendingComment: crypto.randomUUID(),
+  approvedComment: crypto.randomUUID(),
 };
 const mediaKey = `media/2000/01/${ids.media}.png`;
 const postInput = {
@@ -81,6 +93,12 @@ const postInput = {
 
 /** One or more calls per action, each with staff-valid input. */
 const attempts: Record<string, () => Promise<{ ok: boolean }>> = {
+  "comments.moderateComment (approve)": () =>
+    commentActions.moderateComment(ids.pendingComment, "approve"),
+  "comments.moderateComment (spam)": () =>
+    commentActions.moderateComment(ids.approvedComment, "spam"),
+  "comments.moderateComment (delete)": () =>
+    commentActions.moderateComment(ids.approvedComment, "delete"),
   "media.requestUpload": () =>
     mediaActions.requestUpload({
       filename: "x.png",
@@ -115,6 +133,11 @@ const attempts: Record<string, () => Promise<{ ok: boolean }>> = {
     }),
   "settings.updateReaderSettings": () =>
     settingsActions.updateReaderSettings({ signupEnabled: true }),
+  "settings.updateCommentSettings": () =>
+    settingsActions.updateCommentSettings({
+      enabled: true,
+      moderation: "none",
+    }),
   "tags.createTag": () => tagActions.createTag({ name: `${P} new`, slug: "" }),
   "tags.updateTag": () =>
     tagActions.updateTag(ids.tag, { name: "Hijacked", slug: "" }),
@@ -132,6 +155,7 @@ const attempts: Record<string, () => Promise<{ ok: boolean }>> = {
 const sharedSettings = or(
   like(settings.key, "site.%"),
   like(settings.key, "readers.%"),
+  like(settings.key, "comments.%"),
 );
 let settingsBefore: (typeof settings.$inferSelect)[] = [];
 
@@ -180,6 +204,22 @@ beforeAll(async () => {
       tokenHash: hashInviteToken(newInviteToken()),
       expiresAt: new Date(Date.now() + 86_400_000),
     }),
+    db.insert(comments).values([
+      {
+        id: ids.pendingComment,
+        postId: ids.post,
+        authorId: READER.id,
+        body: "Approve me",
+        status: "pending",
+      },
+      {
+        id: ids.approvedComment,
+        postId: ids.post,
+        authorId: STAFF.id,
+        body: "Keep me",
+        status: "approved",
+      },
+    ]),
   ]);
   vi.mocked(getSession).mockResolvedValue({
     user: { ...READER, name: "Reader", email: email(READER.id) },
@@ -236,6 +276,16 @@ describe("a signed-in reader", () => {
       .from(invitation)
       .where(like(invitation.email, `${P}-%`));
     expect(invites).toEqual([{ id: ids.invite }]);
+
+    const commentRows = await db
+      .select({ id: comments.id, status: comments.status })
+      .from(comments)
+      .where(eq(comments.postId, ids.post))
+      .orderBy(comments.body);
+    expect(commentRows).toEqual([
+      { id: ids.pendingComment, status: "pending" },
+      { id: ids.approvedComment, status: "approved" },
+    ]);
 
     const settingsAfter = await db
       .select()

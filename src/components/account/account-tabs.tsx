@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/account", label: "Settings" },
   { href: "/account/likes", label: "Liked stories" },
+  { href: "/account/comments", label: "Comments" },
 ];
 
 export function AccountTabs() {

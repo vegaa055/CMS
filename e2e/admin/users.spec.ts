@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
-
 import { E2E } from "../db";
 import { linkIn, waitForEmail } from "../emails";
+import { expect, test } from "../fixtures";
 import { randomPassword } from "../passwords";
 
 test("invite a user, who signs up and is then removed", async ({

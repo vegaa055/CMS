@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -68,6 +69,8 @@ export const posts = pgTable(
     }),
     seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
+    /** Per-post switch; comments also need the site-wide setting on. */
+    commentsEnabled: boolean("comments_enabled").notNull().default(true),
     searchVector: tsvector("search_vector").generatedAlwaysAs(
       sql`setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(excerpt, '')), 'B') || setweight(to_tsvector('english', content_text), 'C')`,
     ),

@@ -137,6 +137,27 @@ describe("savePost", () => {
     expect(result.ok && result.data.slug).toBe("int-test-post-2");
   });
 
+  it("turns comments off for a post, keeping the choice when it's omitted", async () => {
+    actAs(AUTHOR);
+    const commentsEnabled = async () =>
+      (
+        await db.query.posts.findFirst({
+          where: eq(posts.id, draftId),
+          columns: { commentsEnabled: true },
+        })
+      )?.commentsEnabled;
+    expect(await commentsEnabled()).toBe(true);
+    const off = await savePost({
+      ...base,
+      id: draftId,
+      commentsEnabled: false,
+    });
+    expect(off.ok).toBe(true);
+    expect(await commentsEnabled()).toBe(false);
+    expect((await savePost({ ...base, id: draftId })).ok).toBe(true);
+    expect(await commentsEnabled()).toBe(false);
+  });
+
   it("lets an editor publish, creating tags and revalidating the site", async () => {
     actAs(EDITOR);
     const result = await savePost({

@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 
 import { account, invitation, session, user } from "./auth";
 import { media, posts, postTags, tags } from "./content";
-import { postLikes } from "./engagement";
+import { comments, postLikes } from "./engagement";
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
@@ -10,6 +10,7 @@ export const userRelations = relations(user, ({ many }) => ({
   posts: many(posts),
   media: many(media),
   likes: many(postLikes),
+  comments: many(comments),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -28,6 +29,7 @@ export const postRelations = relations(posts, ({ one, many }) => ({
   }),
   postTags: many(postTags),
   likes: many(postLikes),
+  comments: many(comments),
 }));
 
 export const tagRelations = relations(tags, ({ many }) => ({
@@ -56,4 +58,15 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
 export const postLikeRelations = relations(postLikes, ({ one }) => ({
   post: one(posts, { fields: [postLikes.postId], references: [posts.id] }),
   user: one(user, { fields: [postLikes.userId], references: [user.id] }),
+}));
+
+export const commentRelations = relations(comments, ({ one, many }) => ({
+  post: one(posts, { fields: [comments.postId], references: [posts.id] }),
+  author: one(user, { fields: [comments.authorId], references: [user.id] }),
+  parent: one(comments, {
+    fields: [comments.parentId],
+    references: [comments.id],
+    relationName: "replies",
+  }),
+  replies: many(comments, { relationName: "replies" }),
 }));

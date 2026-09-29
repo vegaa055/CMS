@@ -152,11 +152,11 @@ export type LivePost = NonNullable<
 >;
 
 /** The chronologically previous (older) and next (newer) live posts. */
-export async function getAdjacentPosts(post: {
-  id: string;
-  publishedAt: Date;
-}) {
+export async function getAdjacentPosts(postId: string) {
   const pick = { title: posts.title, slug: posts.slug };
+  // Compare with the stored timestamp: a JS Date drops the microseconds
+  // Postgres keeps, which made a post count as newer than itself.
+  const publishedAt = sql`(select p.published_at from ${posts} p where p.id = ${postId})`;
   const [older, newer] = await Promise.all([
     db
       .select(pick)
@@ -165,8 +165,8 @@ export async function getAdjacentPosts(post: {
         and(
           livePostWhere(),
           or(
-            lt(posts.publishedAt, post.publishedAt),
-            and(eq(posts.publishedAt, post.publishedAt), lt(posts.id, post.id)),
+            lt(posts.publishedAt, publishedAt),
+            and(eq(posts.publishedAt, publishedAt), lt(posts.id, postId)),
           ),
         ),
       )
@@ -179,8 +179,8 @@ export async function getAdjacentPosts(post: {
         and(
           livePostWhere(),
           or(
-            gt(posts.publishedAt, post.publishedAt),
-            and(eq(posts.publishedAt, post.publishedAt), gt(posts.id, post.id)),
+            gt(posts.publishedAt, publishedAt),
+            and(eq(posts.publishedAt, publishedAt), gt(posts.id, postId)),
           ),
         ),
       )

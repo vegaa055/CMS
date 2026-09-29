@@ -50,6 +50,9 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
 - Static generation with incremental revalidation; dark and light themes
 - Likes: signed-in readers like posts (private; only totals are public) and find them again
   under **Account → Liked stories**; the dashboard shows likes per post and the most liked
+- Comments: plain text with one level of replies, from readers with a confirmed email and the
+  team (badged); held for approval as you choose, moderated under **Comments**, and listed
+  under **Account → Comments**
 
 **Team**
 
@@ -156,11 +159,11 @@ local disk storage until you
 
 ## Testing
 
-| Layer       | Tool       | What it covers                                                                                                                                                                                                                                                                                                                            |
-| ----------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                                                                                                                                                      |
-| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, email flows, account self-service, likes, settings, public read models), plus a sweep proving readers are refused by every dashboard action                                                                                  |
-| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, a reader's whole journey (sign-up with the bot check and breach check → confirm email → account → reset password → delete), liking a post (signed-out prompt → sign in → like → Liked stories), public pages, headers |
+| Layer       | Tool       | What it covers                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                                                                                                                                                                                                                      |
+| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, email flows, account self-service, likes, comments and moderation, settings, public read models), plus a sweep proving readers are refused by every dashboard action                                                                                                                         |
+| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, a reader's whole journey (sign-up with the bot check and breach check → confirm email → account → reset password → delete), liking a post (signed-out prompt → sign in → like → Liked stories), commenting (sign in → held → approved → reply → edit → delete), public pages, headers |
 
 Integration and e2e tests create their own `int-*` / `e2e-*` data and remove it afterwards, so
 they can run against a development database.
@@ -207,8 +210,8 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
   came from.
 - **Email:** anyone can reset a forgotten password by email (Sign in → Forgot password?);
   resetting signs the account out everywhere. New readers get a confirmation link; they can
-  use the site right away, and a confirmed address will be required to comment. Invited team
-  members count as confirmed.
+  use the site right away, but need a confirmed address to comment. Invited team members count
+  as confirmed.
 - **Accounts:** everyone signed in has **/account** (from the header's account menu): display
   name, email change (confirmed from the old inbox, then the new one), password (or setting a
   first one after GitHub-only sign-in), signing out other devices, and deleting the account
@@ -233,6 +236,25 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
   instantly, and liking never regenerates cached pages. Each person gets 30 likes a minute.
 - **Account → Liked stories** lists your likes, newest first; the dashboard has a Likes column
   in Posts and a **Most liked** card (authors see their own posts).
+
+### Comments
+
+- Off until an admin turns on **Settings → Comments**, where you also choose what waits for
+  approval: a reader's first comment (the default; later ones publish straight away), every
+  reader comment, or nothing. The team's comments never wait. Each post has an **Allow
+  comments** switch in the editor; closing comments keeps existing ones visible.
+- Readers need a confirmed email. Comments are plain text (web addresses become `nofollow ugc`
+  links, nothing is rendered as HTML), up to 3,000 characters, 5 a minute and 50 a day per
+  person. Replies go one level deep; answering a reply joins its thread.
+- Authors can edit a comment for an hour (it's marked "edited") and delete it any time; a
+  comment with replies leaves a "deleted" placeholder. Editors and admins moderate under
+  **Comments** (Pending / Approved / Spam, with a pending count in the sidebar) and can delete
+  from the post. Staff get an **Author** or **Team** badge.
+- Approved comments are part of the cached post page, and only that page is regenerated when
+  they change. Who's reading, their comments awaiting approval, and the controls load from
+  `GET /api/posts/[id]/comments` in the browser.
+- **Account → Comments** lists your comments with their status. Deleting your account keeps your
+  comments, credited to "Deleted reader".
 
 ### Content
 

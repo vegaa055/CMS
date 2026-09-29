@@ -178,6 +178,9 @@ export async function savePost(raw: unknown): Promise<ActionResult<SavedPost>> {
     coverImageId: input.coverImageId ?? null,
     seoTitle: input.seoTitle ?? null,
     seoDescription: input.seoDescription ?? null,
+    ...(input.commentsEnabled !== undefined && {
+      commentsEnabled: input.commentsEnabled,
+    }),
   };
 
   // One transactional batch: the post row and its tag links change together.

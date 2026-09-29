@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
-
 import { sql } from "../db";
 import { linkIn, waitForEmail } from "../emails";
+import { expect, test } from "../fixtures";
 import { submitWhenReady } from "../forms";
 import { randomPassword } from "../passwords";
 
@@ -78,7 +77,7 @@ test("readers sign up, stay out of the dashboard, and can be promoted", async ({
   await page.goto("/admin/users/readers");
   await page.getByRole("searchbox", { name: /Search readers/ }).fill(name);
   await page.keyboard.press("Enter");
-  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.getByRole("table").getByText(email)).toBeVisible();
   await expect(page.getByRole("main").getByText("Unverified")).toHaveCount(0);
   await page.getByRole("combobox", { name: `Role for ${name}` }).click();
   await page.getByRole("option", { name: "Author" }).click();
