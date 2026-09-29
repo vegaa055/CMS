@@ -25,7 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import type { CommentModeration } from "@/lib/comments";
 import type { CommentSettings } from "@/lib/validation/settings";
 
@@ -49,10 +51,32 @@ const MODERATION: Record<
   },
 };
 
-/** Changes save immediately, like the reader settings. */
+const LINK_LIMITS = [
+  { value: 0, label: "Never" },
+  { value: 1, label: "With any link" },
+  { value: 2, label: "With 2 or more links" },
+  { value: 3, label: "With 3 or more links" },
+  { value: 5, label: "With 5 or more links" },
+];
+
+/** One word or phrase per line (commas work too). */
+function parseWords(text: string) {
+  return text
+    .split(/[\n,]/)
+    .map((w) => w.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Switches and menus save immediately, like the reader settings; the
+ * blocked words have their own Save button.
+ */
 export function CommentSettingsCard({ initial }: { initial: CommentSettings }) {
   const [values, setValues] = useState(initial);
+  const [words, setWords] = useState(initial.blockedWords.join("\n"));
   const [pending, startTransition] = useTransition();
+  const wordsChanged =
+    parseWords(words).join("\n") !== values.blockedWords.join("\n");
 
   function save(next: CommentSettings, message: string) {
     const previous = values;
@@ -131,6 +155,66 @@ export function CommentSettingsCard({ initial }: { initial: CommentSettings }) {
             <FieldDescription>
               {MODERATION[values.moderation].description}
             </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="comments-links">
+              Hold comments with links
+            </FieldLabel>
+            <Select
+              value={String(values.linkLimit)}
+              onValueChange={(limit) =>
+                save(
+                  { ...values, linkLimit: Number(limit) },
+                  "Link rule updated",
+                )
+              }
+              disabled={pending}
+            >
+              <SelectTrigger id="comments-links" className="w-full sm:w-72">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LINK_LIMITS.map((option) => (
+                  <SelectItem key={option.value} value={String(option.value)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              Spam usually comes with links, so readers&apos; comments with this
+              many wait for review, even from people you&apos;ve approved
+              before.
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="comments-blocked">Blocked words</FieldLabel>
+            <Textarea
+              id="comments-blocked"
+              rows={4}
+              value={words}
+              onChange={(e) => setWords(e.target.value)}
+              placeholder={"One per line, e.g.\ncasino\ncheap pills"}
+              className="font-mono text-sm"
+            />
+            <FieldDescription>
+              Readers&apos; comments containing any of these wait for review.
+              Case doesn&apos;t matter, and whole words only: &ldquo;ass&rdquo;
+              won&apos;t catch &ldquo;class&rdquo;.
+            </FieldDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              disabled={pending || !wordsChanged}
+              onClick={() => {
+                const blockedWords = parseWords(words);
+                setWords(blockedWords.join("\n"));
+                save({ ...values, blockedWords }, "Blocked words saved");
+              }}
+            >
+              Save words
+            </Button>
           </Field>
         </FieldGroup>
       </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Pencil, Reply, Trash2 } from "lucide-react";
+import { Flag, Loader2, Pencil, Reply, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import {
   deleteComment,
   editComment,
   postComment,
+  reportComment,
 } from "@/app/(site)/posts/actions";
 import { UserAvatar } from "@/components/admin/user-avatar";
 import { ResendVerification } from "@/components/auth/resend-verification";
@@ -31,6 +32,8 @@ import {
   canEditComment,
   countThread,
   NO_THREAD_CHANGES,
+  REPORT_REASONS,
+  type ReportReason,
   type ThreadChanges,
   type ThreadComment,
 } from "@/lib/comments";
@@ -114,6 +117,75 @@ function DeleteComment({
   );
 }
 
+function ReportComment({
+  name,
+  onReport,
+}: {
+  name: string;
+  onReport: (reason: ReportReason) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<ReportReason>("spam");
+  const [pending, startTransition] = useTransition();
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground h-7 px-2"
+        onClick={() => setOpen(true)}
+      >
+        <Flag /> Report
+      </Button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Report {name}&apos;s comment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It&apos;s hidden until a moderator reviews it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-sm font-medium">
+              What&apos;s wrong with it?
+            </legend>
+            {Object.entries(REPORT_REASONS).map(([value, label]) => (
+              <label
+                key={value}
+                className="has-checked:border-primary flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="report-reason"
+                  value={value}
+                  checked={reason === value}
+                  onChange={() => setReason(value as ReportReason)}
+                  className="accent-primary"
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <Button
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  if (await onReport(reason)) setOpen(false);
+                })
+              }
+            >
+              {pending && <Loader2 className="animate-spin" />}
+              Report comment
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 function CommentItem({
   comment,
   viewer,
@@ -125,6 +197,7 @@ function CommentItem({
   onCancelEdit,
   onSave,
   onDelete,
+  onReport,
 }: {
   comment: ThreadComment;
   viewer: Viewer | null;
@@ -136,15 +209,18 @@ function CommentItem({
   onCancelEdit: () => void;
   onSave: (body: string) => Promise<string | null>;
   onDelete: () => Promise<boolean>;
+  onReport: (reason: ReportReason) => Promise<boolean>;
 }) {
   const anchor = `comment-${comment.id}`;
-  if (comment.deleted) {
+  if (comment.deleted || comment.hidden) {
     return (
       <p
         id={anchor}
         className="text-muted-foreground scroll-mt-24 py-1 text-sm italic"
       >
-        This comment was deleted.
+        {comment.deleted
+          ? "This comment was deleted."
+          : "This comment is hidden."}
       </p>
     );
   }
@@ -152,6 +228,14 @@ function CommentItem({
   const name = comment.author?.name ?? "Deleted reader";
   const own = Boolean(viewer && comment.author?.id === viewer.id);
   const approved = comment.status === "approved";
+  // Readers flag other readers' comments; moderators just act on them.
+  const canReport = Boolean(
+    viewer?.verified &&
+    !viewer.moderator &&
+    !own &&
+    approved &&
+    !comment.author?.badge,
+  );
   return (
     <article
       id={anchor}
@@ -219,6 +303,7 @@ function CommentItem({
             {(own || viewer.moderator) && (
               <DeleteComment own={own} onDelete={onDelete} />
             )}
+            {canReport && <ReportComment name={name} onReport={onReport} />}
           </div>
         )}
       </div>
@@ -297,8 +382,23 @@ export function Comments({
     if (!result.ok) return result.error;
     setChanges((c) => ({ ...c, edited: { ...c.edited, [id]: result.data } }));
     setEditing(null);
-    toast.success("Comment updated");
+    toast.success(
+      result.data.status === "approved"
+        ? "Comment updated"
+        : "Saved. A moderator will review it before it appears.",
+    );
     return null;
+  }
+
+  async function report(id: string, reason: ReportReason) {
+    const result = await reportComment({ id, reason });
+    if (!result.ok) {
+      toast.error(result.error);
+      return false;
+    }
+    setChanges((c) => ({ ...c, removed: { ...c.removed, [id]: "hidden" } }));
+    toast.success("Thanks for letting us know. A moderator will take a look.");
+    return true;
   }
 
   async function remove(id: string) {
@@ -345,6 +445,7 @@ export function Comments({
       onCancelEdit={() => setEditing(null)}
       onSave={(body) => save(comment.id, body)}
       onDelete={() => remove(comment.id)}
+      onReport={(reason) => report(comment.id, reason)}
     />
   );
 

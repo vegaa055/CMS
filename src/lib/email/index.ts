@@ -12,6 +12,8 @@ export type EmailMessage = EmailContent & {
   to: string;
   /** Short category for logs and Resend tags, e.g. "reset-password". */
   tag: string;
+  /** Extra headers, e.g. List-Unsubscribe on notifications. */
+  headers?: Record<string, string>;
 };
 
 /**

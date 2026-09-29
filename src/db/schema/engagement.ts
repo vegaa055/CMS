@@ -64,15 +64,25 @@ export const comments = pgTable(
     parentId: uuid("parent_id").references((): AnyPgColumn => comments.id, {
       onDelete: "cascade",
     }),
+    /** The comment being answered (itself possibly a reply), for emails. */
+    replyToId: uuid("reply_to_id").references((): AnyPgColumn => comments.id, {
+      onDelete: "set null",
+    }),
     body: text("body").notNull(),
-    /** No default: posting decides (see `initialCommentStatus`). */
+    /** No default: posting decides (see `reviewComment`). */
     status: commentStatus("status").notNull(),
+    /** Why it waits (or waited) for a moderator, e.g. "blocked-word". */
+    heldReason: text("held_reason"),
+    /** Specifics for moderators: the matched word, or the link count. */
+    heldDetail: text("held_detail"),
     editedAt: timestamp("edited_at", { withTimezone: true }),
     /**
      * Set when a comment with replies is deleted: its text is cleared but
      * the row stays, so the replies keep their place under "[deleted]".
      */
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /** When the emails about it being published went out (only once). */
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
@@ -87,5 +97,33 @@ export const comments = pgTable(
     // Account → Your comments.
     index("comments_author_created_idx").on(t.authorId, t.createdAt),
     index("comments_parent_idx").on(t.parentId),
+    index("comments_reply_to_idx").on(t.replyToId),
+  ],
+);
+
+/**
+ * A reader flagging someone's comment; it goes back to the moderation queue.
+ * Kept (resolved) after a moderator acts, so nobody reports the same comment
+ * twice.
+ */
+export const commentReports = pgTable(
+  "comment_reports",
+  {
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** See `REPORT_REASONS` in src/lib/comments. */
+    reason: text("reason").notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.commentId, t.reporterId] }),
+    index("comment_reports_reporter_created_idx").on(t.reporterId, t.createdAt),
   ],
 );

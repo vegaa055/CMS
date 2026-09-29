@@ -37,6 +37,11 @@ export const env = createEnv({
      * puts a bot check on sign-up and password reset; unset, there's none.
      */
     TURNSTILE_SECRET_KEY: z.string().optional(),
+    /**
+     * Vercel Cron sends it as a bearer token to /api/cron/*; unset, the
+     * scheduled jobs (the moderators' daily digest) don't run.
+     */
+    CRON_SECRET: z.string().min(16).optional(),
   },
   client: {
     // Optional: see resolveAppUrl() in src/config/site.ts.
@@ -59,6 +64,7 @@ export const env = createEnv({
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM: process.env.EMAIL_FROM,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
+    CRON_SECRET: process.env.CRON_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
   },

@@ -43,6 +43,13 @@
       "when": 1790633331620,
       "tag": "0005_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790698321227,
+      "tag": "0006_moderation",
+      "breakpoints": true
     }
   ]
 }

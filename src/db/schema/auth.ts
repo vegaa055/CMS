@@ -35,6 +35,13 @@ export const user = pgTable("user", {
   /** Public handle for author pages (/authors/<username>). */
   username: text("username").unique(),
   bio: text("bio"),
+  /** Set while a reader is banned: they can't sign in or comment. */
+  bannedAt: timestamp("banned_at", { withTimezone: true }),
+  banReason: text("ban_reason"),
+  /** Email notification choices (see src/lib/notifications). */
+  notifyReplies: boolean("notify_replies").notNull().default(true),
+  notifyPostComments: boolean("notify_post_comments").notNull().default(true),
+  notifyDigest: boolean("notify_digest").notNull().default(true),
   ...timestamps,
 });
 

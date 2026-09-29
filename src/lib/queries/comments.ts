@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { comments, posts, user } from "@/db/schema";
+import { commentReports, comments, posts, user } from "@/db/schema";
 import { isRole, isStaff } from "@/lib/auth/permissions";
 import {
   countThread,
+  describeHold,
   type CommentStatus,
   type ThreadComment,
 } from "@/lib/comments";
@@ -51,6 +52,7 @@ function toThreadComment(
     parentId: row.parentId,
     body: row.deletedAt ? "" : row.body,
     deleted: row.deletedAt !== null,
+    hidden: false,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     editedAt: row.editedAt?.toISOString() ?? null,
@@ -74,8 +76,9 @@ function toThreadComment(
 
 /**
  * A post's public thread: approved comments oldest first, with replies
- * nested under their (approved) parent. A deleted comment only stays while
- * it has replies. `total` counts the comments actually shown.
+ * nested under their parent. A parent that's deleted, or hidden (awaiting
+ * review or spam), stays as a placeholder while it has published replies.
+ * `total` counts the comments actually shown.
  */
 export async function getPostThread(
   postId: string,
@@ -91,12 +94,51 @@ export async function getPostThread(
   const byId = new Map(
     rows.map((r) => [r.id, toThreadComment(r, postAuthorId)]),
   );
+  // Published replies under a parent that isn't public: show its place,
+  // never its words or author.
+  const unlisted = [
+    ...new Set(
+      rows.flatMap((r) =>
+        r.parentId && !byId.has(r.parentId) ? [r.parentId] : [],
+      ),
+    ),
+  ];
+  if (unlisted.length) {
+    const parents = await db
+      .select({
+        id: comments.id,
+        createdAt: comments.createdAt,
+        deletedAt: comments.deletedAt,
+      })
+      .from(comments)
+      .where(inArray(comments.id, unlisted));
+    for (const parent of parents) {
+      byId.set(parent.id, {
+        id: parent.id,
+        parentId: null,
+        body: "",
+        deleted: parent.deletedAt !== null,
+        hidden: parent.deletedAt === null,
+        status: "pending",
+        createdAt: parent.createdAt.toISOString(),
+        editedAt: null,
+        author: null,
+        replies: [],
+      });
+    }
+  }
+
   const top: ThreadComment[] = [];
   for (const comment of byId.values()) {
     if (!comment.parentId) top.push(comment);
     else byId.get(comment.parentId)?.replies.push(comment);
   }
-  const thread = top.filter((c) => !c.deleted || c.replies.length > 0);
+  const thread = top
+    .filter((c) => !(c.deleted || c.hidden) || c.replies.length > 0)
+    .sort(
+      (a, b) =>
+        a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+    );
   return { comments: thread, total: countThread(thread) };
 }
 
@@ -179,6 +221,7 @@ export async function getCommentForAction(id: string) {
       postId: comments.postId,
       parentId: comments.parentId,
       authorId: comments.authorId,
+      authorRole: user.role,
       status: comments.status,
       createdAt: comments.createdAt,
       deletedAt: comments.deletedAt,
@@ -191,11 +234,14 @@ export async function getCommentForAction(id: string) {
     })
     .from(comments)
     .innerJoin(posts, eq(posts.id, comments.postId))
+    .leftJoin(user, eq(user.id, comments.authorId))
     .where(eq(comments.id, id));
   if (!row) return undefined;
-  const { post, ...comment } = row;
+  const { post, authorRole, ...comment } = row;
   return {
     ...comment,
+    /** Whether a team member wrote it (they can't be reported or banned). */
+    byStaff: isStaff(isRole(authorRole) ? authorRole : undefined),
     post: {
       slug: post.slug,
       live: effectiveStatus(post.status, post.publishedAt) === "published",
@@ -222,6 +268,21 @@ export async function getModerationQueue({
     .select({ id: user.id, name: user.name })
     .from(user)
     .as("parent_author");
+  // Open reports per comment (single-table, so the raw column is safe).
+  const reports = db
+    .select({
+      commentId: commentReports.commentId,
+      count: count().as("report_count"),
+      reasons: sql<
+        string[]
+      >`array_agg(distinct ${commentReports.reason} order by ${commentReports.reason})`.as(
+        "report_reasons",
+      ),
+    })
+    .from(commentReports)
+    .where(isNull(commentReports.resolvedAt))
+    .groupBy(commentReports.commentId)
+    .as("reports");
   const where = and(eq(comments.status, status), isNull(comments.deletedAt));
   const [rows, [total]] = await Promise.all([
     db
@@ -231,9 +292,15 @@ export async function getModerationQueue({
         status: comments.status,
         createdAt: comments.createdAt,
         editedAt: comments.editedAt,
+        heldReason: comments.heldReason,
+        heldDetail: comments.heldDetail,
+        authorId: comments.authorId,
         authorName: user.name,
         authorEmail: user.email,
         authorRole: user.role,
+        authorBannedAt: user.bannedAt,
+        reportCount: reports.count,
+        reportReasons: reports.reasons,
         postTitle: posts.title,
         postSlug: posts.slug,
         replyTo: parentAuthor.name,
@@ -244,6 +311,7 @@ export async function getModerationQueue({
       .leftJoin(user, eq(user.id, comments.authorId))
       .leftJoin(parent, eq(parent.id, comments.parentId))
       .leftJoin(parentAuthor, eq(parentAuthor.id, parent.authorId))
+      .leftJoin(reports, eq(reports.commentId, comments.id))
       .where(where)
       .orderBy(desc(comments.createdAt), desc(comments.id))
       .limit(COMMENTS_PER_PAGE)
@@ -259,15 +327,25 @@ export async function getModerationQueue({
       createdAt: r.createdAt.toISOString(),
       edited: r.editedAt !== null,
       author:
-        r.authorName !== null
+        r.authorId && r.authorName !== null
           ? {
+              id: r.authorId,
               name: r.authorName,
               email: r.authorEmail!,
               staff: isStaff(isRole(r.authorRole) ? r.authorRole : undefined),
+              banned: r.authorBannedAt !== null,
             }
           : null,
       post: { title: r.postTitle, slug: r.postSlug },
       reply: r.isReply ? { to: r.replyTo } : null,
+      /** Why it's waiting, for the Pending tab. */
+      held:
+        r.status === "pending"
+          ? describeHold(r.heldReason, r.heldDetail)
+          : null,
+      reports: r.reportCount
+        ? { count: r.reportCount, reasons: r.reportReasons ?? [] }
+        : null,
     })),
     total: totalCount,
     pageCount: Math.max(1, Math.ceil(totalCount / COMMENTS_PER_PAGE)),

@@ -4,7 +4,10 @@ import Link from "next/link";
 
 import { EmptyState } from "@/components/admin/empty-state";
 import { UserAvatar } from "@/components/admin/user-avatar";
-import { RemoveUser, RoleSelect } from "@/components/admin/users/user-controls";
+import {
+  ReaderActions,
+  RoleSelect,
+} from "@/components/admin/users/user-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,6 +134,14 @@ export function ReadersTable({
                           {!reader.emailVerified && (
                             <Badge variant="outline">Unverified</Badge>
                           )}
+                          {reader.banned && (
+                            <Badge
+                              variant="destructive"
+                              title={reader.banned.reason ?? undefined}
+                            >
+                              Banned
+                            </Badge>
+                          )}
                         </span>
                         <span className="text-muted-foreground text-xs">
                           {reader.email}
@@ -146,7 +157,9 @@ export function ReadersTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end">
-                      <RemoveUser user={reader} />
+                      <ReaderActions
+                        user={{ ...reader, banned: Boolean(reader.banned) }}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>

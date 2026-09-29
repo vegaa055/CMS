@@ -12,6 +12,7 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ActivityTiles } from "@/components/admin/activity-tiles";
 import { EmptyState } from "@/components/admin/empty-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -33,6 +34,7 @@ import {
   getDashboardStats,
   getRecentPosts,
 } from "@/lib/queries/admin";
+import { getWeeklyActivity } from "@/lib/queries/stats";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -67,12 +69,34 @@ function StatCard({
 export default async function DashboardPage() {
   const session = await requirePermission("dashboard:view");
   const { user } = session;
-  const [stats, recent, mostLiked] = await Promise.all([
+  const [stats, recent, mostLiked, activity] = await Promise.all([
     getDashboardStats(session),
     getRecentPosts(session),
     getDashboardMostLiked(session),
+    getWeeklyActivity(session),
   ]);
   const sitewide = can(user.role, "post:update:any");
+  const activitySeries = [
+    ...(activity.readers
+      ? [
+          {
+            label: "New readers",
+            unit: ["new reader", "new readers"] as [string, string],
+            counts: activity.readers,
+          },
+        ]
+      : []),
+    {
+      label: "Likes",
+      unit: ["like", "likes"] as [string, string],
+      counts: activity.likes,
+    },
+    {
+      label: "Comments",
+      unit: ["comment", "comments"] as [string, string],
+      counts: activity.comments,
+    },
+  ];
 
   const statCards = [
     {
@@ -126,6 +150,20 @@ export default async function DashboardPage() {
           <StatCard key={card.label} {...card} />
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Last 7 days</CardTitle>
+          <CardDescription>
+            {sitewide
+              ? "Readers, likes, and published comments across the site, compared with the 7 days before."
+              : "Likes and published comments on your posts, compared with the 7 days before."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActivityTiles series={activitySeries} labels={activity.labels} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">

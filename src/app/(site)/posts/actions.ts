@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { FOREIGN_KEY_VIOLATION, pgError } from "@/db/errors";
-import { comments, postLikes } from "@/db/schema";
+import { commentReports, comments, postLikes } from "@/db/schema";
 import {
   fail,
   ok,
@@ -14,13 +14,18 @@ import {
 } from "@/lib/action-result";
 import { can, isStaff } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
+import { runAfterResponse } from "@/lib/background";
 import {
   canEditComment,
   commentBodySchema,
-  initialCommentStatus,
+  reportReasonSchema,
+  reviewComment,
+  reviewContent,
+  type CommentStatus,
   type ThreadComment,
 } from "@/lib/comments";
 import { removeComment } from "@/lib/comments/remove";
+import { notifyCommentPublished } from "@/lib/notifications";
 import {
   getCommentablePost,
   getCommentForAction,
@@ -164,9 +169,10 @@ export async function postComment(
 
   if (!(await underCommentLimits(user.id, "min", "day"))) return fail(TOO_FAST);
 
-  const status = initialCommentStatus({
+  const review = reviewComment({
     staff,
-    mode: settings.moderation,
+    body: input.body,
+    rules: settings,
     hasApprovedComment:
       !staff &&
       settings.moderation === "first" &&
@@ -181,8 +187,11 @@ export async function postComment(
         postId: post.id,
         authorId: user.id,
         parentId,
+        replyToId: input.parentId ?? null,
         body: input.body,
-        status,
+        status: review.status,
+        heldReason: review.reason,
+        heldDetail: review.detail,
       })
       .returning();
   } catch (error) {
@@ -190,14 +199,18 @@ export async function postComment(
     if (pgError(error).code === FOREIGN_KEY_VIOLATION) return fail(UNAVAILABLE);
     throw error;
   }
-  if (status === "approved") revalidatePost(post.slug);
+  if (review.status === "approved") {
+    revalidatePost(post.slug);
+    runAfterResponse(notifyCommentPublished(created!.id));
+  }
 
   return ok({
     id: created!.id,
     parentId,
     body: created!.body,
     deleted: false,
-    status,
+    hidden: false,
+    status: review.status,
     createdAt: created!.createdAt.toISOString(),
     editedAt: null,
     author: {
@@ -212,10 +225,16 @@ export async function postComment(
 
 const editSchema = z.object({ id: z.uuid(), body: commentBodySchema });
 
-/** Change your own comment's text, for a while after posting it. */
+/**
+ * Change your own comment's text, for a while after posting it. The new text
+ * gets the same checks as a new comment, so a blocked word or a pile of
+ * links sends it back for review.
+ */
 export async function editComment(
   raw: unknown,
-): Promise<ActionResult<{ body: string; editedAt: string }>> {
+): Promise<
+  ActionResult<{ body: string; editedAt: string; status: CommentStatus }>
+> {
   const session = await getSession();
   if (!session) return fail("Sign in to edit comments.");
   const parsed = editSchema.safeParse(raw);
@@ -242,14 +261,35 @@ export async function editComment(
   }
   if (!(await underCommentLimits(userId, "min"))) return fail(TOO_FAST);
 
+  const hold = reviewContent({
+    staff: isStaff(session.user.role),
+    body: parsed.data.body,
+    rules: settings,
+  });
   const [row] = await db
     .update(comments)
-    .set({ body: parsed.data.body, editedAt: new Date() })
+    .set({
+      body: parsed.data.body,
+      editedAt: new Date(),
+      ...(hold && {
+        status: hold.status,
+        heldReason: hold.reason,
+        heldDetail: hold.detail,
+      }),
+    })
     .where(and(eq(comments.id, comment.id), isNull(comments.deletedAt)))
-    .returning({ body: comments.body, editedAt: comments.editedAt });
+    .returning({
+      body: comments.body,
+      editedAt: comments.editedAt,
+      status: comments.status,
+    });
   if (!row?.editedAt) return fail(UNAVAILABLE);
   if (comment.status === "approved") revalidatePost(comment.post.slug);
-  return ok({ body: row.body, editedAt: row.editedAt.toISOString() });
+  return ok({
+    body: row.body,
+    editedAt: row.editedAt.toISOString(),
+    status: row.status,
+  });
 }
 
 /**
@@ -274,4 +314,64 @@ export async function deleteComment(
   const removed = await removeComment(comment);
   if (comment.status === "approved") revalidatePost(comment.post.slug);
   return ok({ removed });
+}
+
+const reportSchema = z.object({ id: z.uuid(), reason: reportReasonSchema });
+const REPORTS_PER_DAY = { max: 10, windowMs: 24 * 60 * 60_000 };
+
+/**
+ * Flag someone else's published comment for the moderators. It goes back
+ * to the queue, hidden from the post, until one of them decides. Each person
+ * can report a comment once, and the team's comments can't be reported.
+ */
+export async function reportComment(
+  raw: unknown,
+): Promise<ActionResult<{ hidden: boolean }>> {
+  const session = await getSession();
+  if (!session) return fail("Sign in to report comments.");
+  const { user } = session;
+  if (!isStaff(user.role) && !user.emailVerified) {
+    return fail("Confirm your email address to report comments.");
+  }
+  const parsed = reportSchema.safeParse(raw);
+  if (!parsed.success) return fail("Choose what's wrong with it.");
+  const comment = await getCommentForAction(parsed.data.id);
+  if (
+    !comment ||
+    comment.deletedAt ||
+    !comment.post.live ||
+    comment.status !== "approved"
+  ) {
+    return fail(UNAVAILABLE);
+  }
+  if (comment.authorId === user.id) {
+    return fail("You can't report your own comment.");
+  }
+  if (comment.byStaff) return fail("Comments from the team can't be reported.");
+  if (!(await consumeRateLimit(`report:${user.id}`, REPORTS_PER_DAY))) {
+    return fail("You've sent a lot of reports today. Try again tomorrow.");
+  }
+
+  try {
+    const inserted = await db
+      .insert(commentReports)
+      .values({
+        commentId: comment.id,
+        reporterId: user.id,
+        reason: parsed.data.reason,
+      })
+      .onConflictDoNothing()
+      .returning({ commentId: commentReports.commentId });
+    if (!inserted.length) return fail("You've already reported this comment.");
+  } catch (error) {
+    if (pgError(error).code === FOREIGN_KEY_VIOLATION) return fail(UNAVAILABLE);
+    throw error;
+  }
+  const [hidden] = await db
+    .update(comments)
+    .set({ status: "pending", heldReason: "reported", heldDetail: null })
+    .where(and(eq(comments.id, comment.id), eq(comments.status, "approved")))
+    .returning({ id: comments.id });
+  if (hidden) revalidatePost(comment.post.slug);
+  return ok({ hidden: Boolean(hidden) });
 }

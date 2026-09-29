@@ -43,6 +43,12 @@ vi.mock("@/lib/settings", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/settings")>()),
   getCommentSettings: vi.fn(),
 }));
+// Emails are covered in notifications.int.test.ts.
+vi.mock("@/lib/notifications", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/notifications")>()),
+  notifyCommentPublished: vi.fn(async () => {}),
+  notifyCommentsPublished: vi.fn(async () => {}),
+}));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({
@@ -87,6 +93,8 @@ function settings(value: Partial<CommentSettings> = {}) {
   vi.mocked(getCommentSettings).mockResolvedValue({
     enabled: true,
     moderation: "first",
+    blockedWords: [],
+    linkLimit: 3,
     ...value,
   });
 }

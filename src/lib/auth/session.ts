@@ -7,10 +7,13 @@ import { cache } from "react";
 import { auth } from "./index";
 import { can, isRole, type Permission, type Role } from "./permissions";
 
-/** Current session (deduplicated per request), or null. */
+/**
+ * Current session (deduplicated per request), or null. A banned user counts
+ * as signed out, even with a session that slipped in as they were banned.
+ */
 export const getSession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return null;
+  if (!session || session.user.bannedAt) return null;
   // Least privilege: anything unrecognized is treated as a reader.
   const role: Role = isRole(session.user.role) ? session.user.role : "reader";
   return { ...session, user: { ...session.user, role } };

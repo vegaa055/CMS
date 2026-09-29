@@ -56,10 +56,9 @@ export async function cleanupE2E() {
   // Comments would otherwise outlive their e2e author on real posts.
   await db`delete from comments where author_id in (select id from "user" where email like 'e2e-%@folio.local')`;
   await db`delete from "user" where email like 'e2e-%@folio.local'`;
-  // Per-person limits (app:email:<kind>:<user id>, app:like:<user id>,
-  // app:comment:<window>:<user id>) of deleted users, including readers the
-  // tests removed through the UI.
-  await db`delete from rate_limit where (key like 'app:email:%' or key like 'app:like:%' or key like 'app:comment:%') and split_part(key, ':', -1) not in (select id from "user")`;
+  // Per-person limits (app:<kind>:...:<user id>) of deleted users, including
+  // readers the tests removed through the UI.
+  await db`delete from rate_limit where key similar to 'app:(email|like|comment|report|notify):%' and split_part(key, ':', -1) not in (select id from "user")`;
   // Emails to e2e addresses land in the local outbox (see src/lib/email).
   const outbox = path.join(process.cwd(), ".emails");
   for (const name of await readdir(outbox).catch(() => [])) {

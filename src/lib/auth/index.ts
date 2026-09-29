@@ -136,6 +136,8 @@ export const auth = betterAuth({
       // Profile fields are edited only through our own server actions.
       username: { type: "string", required: false, input: false },
       bio: { type: "string", required: false, input: false },
+      // Set by moderators; `getSession()` treats a banned user as signed out.
+      bannedAt: { type: "date", required: false, input: false },
     },
     // A verified address is confirmed from the old inbox first, then the
     // new one; an unverified address only needs the new inbox.
@@ -232,6 +234,23 @@ export const auth = betterAuth({
               role: mode === "first-admin" ? "admin" : "reader",
             },
           };
+        },
+      },
+    },
+    // Every sign-in (password, GitHub, email links) creates a session:
+    // banned readers are stopped here.
+    session: {
+      create: {
+        before: async (session) => {
+          const [owner] = await db
+            .select({ bannedAt: schema.user.bannedAt })
+            .from(schema.user)
+            .where(eq(schema.user.id, session.userId));
+          if (owner?.bannedAt) {
+            throw new APIError("FORBIDDEN", {
+              message: "This account has been suspended.",
+            });
+          }
         },
       },
     },

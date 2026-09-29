@@ -213,6 +213,8 @@ export async function getReaders({
         image: user.image,
         role: user.role,
         emailVerified: user.emailVerified,
+        bannedAt: user.bannedAt,
+        banReason: user.banReason,
         createdAt: user.createdAt,
       })
       .from(user)
@@ -224,7 +226,13 @@ export async function getReaders({
   ]);
   const totalCount = total?.count ?? 0;
   return {
-    rows: rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    rows: rows.map(({ bannedAt, ...r }) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      banned: bannedAt
+        ? { at: bannedAt.toISOString(), reason: r.banReason }
+        : null,
+    })),
     total: totalCount,
     pageCount: Math.max(1, Math.ceil(totalCount / READERS_PER_PAGE)),
   };

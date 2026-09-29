@@ -26,6 +26,7 @@ const PERMISSIONS = {
   "media:upload": ["admin", "editor", "author"],
   "media:delete:any": ["admin", "editor"],
   "comment:moderate": ["admin", "editor"],
+  "reader:ban": ["admin", "editor"],
   "user:manage": ["admin"],
   "settings:manage": ["admin"],
 } as const satisfies Record<string, readonly Role[]>;

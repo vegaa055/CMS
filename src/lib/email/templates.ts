@@ -44,14 +44,37 @@ type Layout = {
   preview: string;
   heading: string;
   paragraphs: string[];
+  /** Someone's words (e.g. a comment), set apart and kept as written. */
+  quote?: string;
   action: { label: string; url: string };
   /** Small print: expiry and what to do if it wasn't them. */
-  footnote: string;
+  footnote?: string;
+  /** Notifications: why they got it, and a one-click way out. */
+  unsubscribe?: { note: string; url: string };
 };
 
+/** Shortened to about `max` characters, at a word boundary. */
+export function excerpt(value: string, max: number) {
+  const text = value.trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  // Break at the last word unless that would lose most of the text.
+  return `${cut.slice(0, space > max * 0.4 ? space : max).trimEnd()}…`;
+}
+
 function render(layout: Layout): EmailContent {
-  const { siteName, subject, preview, heading, paragraphs, action, footnote } =
-    layout;
+  const {
+    siteName,
+    subject,
+    preview,
+    heading,
+    paragraphs,
+    quote,
+    action,
+    footnote,
+    unsubscribe,
+  } = layout;
   const e = escapeHtml;
   const url = e(action.url);
   const text = (size: number, color: string, extra = "") =>
@@ -75,6 +98,7 @@ function render(layout: Layout): EmailContent {
 <tr><td style="background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:12px;padding:32px;">
 <h1 style="margin:0 0 16px;font-family:${SANS};font-size:22px;line-height:1.3;font-weight:600;color:${COLORS.text};">${e(heading)}</h1>
 ${paragraphs.map((p) => `<p style="${text(15, COLORS.text)}">${e(p)}</p>`).join("\n")}
+${quote ? `<div style="${text(15, COLORS.text, `padding:12px 16px;border-left:3px solid ${COLORS.button};background:${COLORS.page};border-radius:4px;white-space:pre-wrap;`)}">${e(quote)}</div>` : ""}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
 <tr><td style="border-radius:8px;background:${COLORS.button};">
 <a href="${url}" style="display:inline-block;padding:12px 20px;font-family:${SANS};font-size:15px;font-weight:600;line-height:1;color:${COLORS.buttonText};text-decoration:none;border-radius:8px;">${e(action.label)}</a>
@@ -82,8 +106,9 @@ ${paragraphs.map((p) => `<p style="${text(15, COLORS.text)}">${e(p)}</p>`).join(
 </table>
 <p style="${text(13, COLORS.muted, "margin-bottom:4px;")}">If the button doesn't work, paste this link into your browser:</p>
 <p style="${text(13, COLORS.text, "word-break:break-all;")}"><a href="${url}" style="color:${COLORS.text};">${url}</a></p>
-<p style="${text(13, COLORS.muted, "margin:0;")}">${e(footnote)}</p>
+${footnote ? `<p style="${text(13, COLORS.muted, "margin:0;")}">${e(footnote)}</p>` : ""}
 </td></tr>
+${unsubscribe ? `<tr><td style="padding:16px 4px 0;font-family:${SANS};font-size:12px;line-height:1.6;color:${COLORS.muted};">${e(unsubscribe.note)} <a href="${e(unsubscribe.url)}" style="color:${COLORS.muted};">Unsubscribe</a></td></tr>` : ""}
 </table>
 </td></tr>
 </table>
@@ -93,9 +118,13 @@ ${paragraphs.map((p) => `<p style="${text(15, COLORS.text)}">${e(p)}</p>`).join(
   const plain = [
     heading,
     ...paragraphs,
+    ...(quote ? [quote.replace(/^/gm, "> ")] : []),
     `${action.label}: ${action.url}`,
-    footnote,
+    ...(footnote ? [footnote] : []),
     `— ${siteName}`,
+    ...(unsubscribe
+      ? [`${unsubscribe.note} Unsubscribe: ${unsubscribe.url}`]
+      : []),
   ].join("\n\n");
 
   return { subject, html, text: plain };
@@ -226,5 +255,108 @@ export function newEmailMessage({
     action: { label: "Use this email", url },
     footnote:
       "This link expires in 24 hours. If you didn't ask for this, you can ignore this email.",
+  });
+}
+
+/** Someone answered your comment. */
+export function commentReplyMessage({
+  siteName,
+  name,
+  replierName,
+  postTitle,
+  reply,
+  url,
+  unsubscribeUrl,
+}: {
+  siteName: string;
+  name: string;
+  replierName: string;
+  postTitle: string;
+  reply: string;
+  url: string;
+  unsubscribeUrl: string;
+}) {
+  return render({
+    siteName,
+    subject: `${replierName} replied to your comment on “${postTitle}”`,
+    preview: excerpt(reply.replace(/\s+/g, " "), 120),
+    heading: `${replierName} replied to you`,
+    paragraphs: [
+      `Hi ${name}, ${replierName} replied to your comment on “${postTitle}”:`,
+    ],
+    quote: excerpt(reply, 600),
+    action: { label: "Read and reply", url },
+    unsubscribe: {
+      note: "You're getting this because someone replied to your comment.",
+      url: unsubscribeUrl,
+    },
+  });
+}
+
+/** A comment was published on your post. */
+export function newCommentMessage({
+  siteName,
+  name,
+  commenterName,
+  postTitle,
+  comment,
+  url,
+  unsubscribeUrl,
+}: {
+  siteName: string;
+  name: string;
+  commenterName: string;
+  postTitle: string;
+  comment: string;
+  url: string;
+  unsubscribeUrl: string;
+}) {
+  return render({
+    siteName,
+    subject: `New comment on “${postTitle}”`,
+    preview: excerpt(comment.replace(/\s+/g, " "), 120),
+    heading: `${commenterName} commented on your post`,
+    paragraphs: [`Hi ${name}, there's a new comment on “${postTitle}”:`],
+    quote: excerpt(comment, 600),
+    action: { label: "View the comment", url },
+    unsubscribe: {
+      note: "You're getting this because you wrote this post.",
+      url: unsubscribeUrl,
+    },
+  });
+}
+
+/** For moderators: what's waiting in the queue. */
+export function moderationDigestMessage({
+  siteName,
+  name,
+  pending,
+  items,
+  url,
+  unsubscribeUrl,
+}: {
+  siteName: string;
+  name: string;
+  pending: number;
+  /** The newest few, e.g. "Sam on “Title”: Nice post…". */
+  items: string[];
+  url: string;
+  unsubscribeUrl: string;
+}) {
+  const waiting = `${pending} ${pending === 1 ? "comment is" : "comments are"} waiting for review`;
+  return render({
+    siteName,
+    subject: `${waiting} on ${siteName}`,
+    preview: items[0] ?? waiting,
+    heading: waiting.charAt(0).toUpperCase() + waiting.slice(1),
+    paragraphs: [
+      `Hi ${name}, here's what's in the moderation queue${pending > items.length ? ", newest first" : ""}:`,
+      ...items.map((item) => `• ${item}`),
+    ],
+    action: { label: "Review comments", url },
+    unsubscribe: {
+      note: "You're getting this daily summary because you moderate comments.",
+      url: unsubscribeUrl,
+    },
   });
 }

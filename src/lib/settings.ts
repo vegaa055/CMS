@@ -123,11 +123,14 @@ export const saveReaderSettings = readerSettings.save;
 
 /**
  * Comments start off; admins turn them on in Settings. By default a
- * reader's first comment waits for approval and later ones publish.
+ * reader's first comment waits for approval and later ones publish, and
+ * comments with three or more links wait too.
  */
 export const DEFAULT_COMMENT_SETTINGS: CommentSettings = {
   enabled: false,
   moderation: "first",
+  blockedWords: [],
+  linkLimit: 3,
 };
 
 const commentSettings = settingsGroup(

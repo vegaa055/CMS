@@ -78,6 +78,7 @@ const ids = {
   invite: crypto.randomUUID(),
   pendingComment: crypto.randomUUID(),
   approvedComment: crypto.randomUUID(),
+  spamComment: crypto.randomUUID(),
 };
 const mediaKey = `media/2000/01/${ids.media}.png`;
 const postInput = {
@@ -99,6 +100,20 @@ const attempts: Record<string, () => Promise<{ ok: boolean }>> = {
     commentActions.moderateComment(ids.approvedComment, "spam"),
   "comments.moderateComment (delete)": () =>
     commentActions.moderateComment(ids.approvedComment, "delete"),
+  "comments.moderateComments": () =>
+    commentActions.moderateComments(
+      [ids.pendingComment, ids.approvedComment],
+      "delete",
+    ),
+  "comments.deleteAllSpam": () => commentActions.deleteAllSpam(),
+  "comments.banReader": () =>
+    commentActions.banReader({
+      userId: READER.id,
+      reason: "",
+      hideComments: true,
+    }),
+  "comments.unbanReader": () => commentActions.unbanReader(READER.id),
+  "comments.spamAndBan": () => commentActions.spamAndBan(ids.pendingComment),
   "media.requestUpload": () =>
     mediaActions.requestUpload({
       filename: "x.png",
@@ -137,6 +152,8 @@ const attempts: Record<string, () => Promise<{ ok: boolean }>> = {
     settingsActions.updateCommentSettings({
       enabled: true,
       moderation: "none",
+      blockedWords: [],
+      linkLimit: 0,
     }),
   "tags.createTag": () => tagActions.createTag({ name: `${P} new`, slug: "" }),
   "tags.updateTag": () =>
@@ -219,6 +236,13 @@ beforeAll(async () => {
         body: "Keep me",
         status: "approved",
       },
+      {
+        id: ids.spamComment,
+        postId: ids.post,
+        authorId: READER.id,
+        body: "Leave me in spam",
+        status: "spam",
+      },
     ]),
   ]);
   vi.mocked(getSession).mockResolvedValue({
@@ -285,7 +309,13 @@ describe("a signed-in reader", () => {
     expect(commentRows).toEqual([
       { id: ids.pendingComment, status: "pending" },
       { id: ids.approvedComment, status: "approved" },
+      { id: ids.spamComment, status: "spam" },
     ]);
+    const [reader] = await db
+      .select({ bannedAt: user.bannedAt })
+      .from(user)
+      .where(eq(user.id, READER.id));
+    expect(reader?.bannedAt).toBeNull();
 
     const settingsAfter = await db
       .select()

@@ -4,6 +4,7 @@ import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { z } from "zod";
 
 import { db } from "@/db";
 import { user } from "@/db/schema";
@@ -16,6 +17,7 @@ import {
 import { auth } from "@/lib/auth";
 import { isStaff } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
+import { NOTIFICATION_KINDS, setNotification } from "@/lib/notifications";
 import { getCommentedPostSlugs } from "@/lib/queries/comments";
 import { revalidatePost, revalidatePublicSite } from "@/lib/revalidate";
 import {
@@ -125,5 +127,20 @@ export async function setPassword(raw: unknown): Promise<ActionResult> {
     return fail(error.message || "Couldn't set your password.");
   }
   revalidatePath("/account");
+  return ok(null);
+}
+
+const notificationSchema = z.object({
+  kind: z.enum(NOTIFICATION_KINDS),
+  enabled: z.boolean(),
+});
+
+/** Turn one kind of notification email on or off for yourself. */
+export async function updateNotification(raw: unknown): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return fail(EXPIRED);
+  const parsed = notificationSchema.safeParse(raw);
+  if (!parsed.success) return fail("Invalid request.");
+  await setNotification(session.user.id, parsed.data.kind, parsed.data.enabled);
   return ok(null);
 }

@@ -53,6 +53,10 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
 - Comments: plain text with one level of replies, from readers with a confirmed email and the
   team (badged); held for approval as you choose, moderated under **Comments**, and listed
   under **Account → Comments**
+- Moderation tools: blocked words, holding link-heavy comments, reader reports, bulk actions,
+  and bans (with a one-click **Spam + ban**)
+- Email notifications: replies to your comment, new comments on your posts, and a daily digest
+  for moderators, each with one-click unsubscribe
 
 **Team**
 
@@ -62,8 +66,9 @@ running it. Built with Next.js 16, Postgres, and a dark-first design system.
   dashboard access
 - Profiles with avatars and public author pages; editable site settings
 - Email (Resend): password reset for everyone, email confirmation for readers
-- Reader accounts page: display name, email change, password, signed-in devices, and account
-  deletion; an account menu in the site header
+- Reader accounts page: display name, email change, password, email notifications, signed-in
+  devices, and account deletion; an account menu in the site header
+- Dashboard: content counts, new readers, likes, and comments over the last 8 weeks
 
 **Quality**
 
@@ -159,11 +164,11 @@ local disk storage until you
 
 ## Testing
 
-| Layer       | Tool       | What it covers                                                                                                                                                                                                                                                                                                                                                                                            |
-| ----------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                                                                                                                                                                                                                      |
-| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, email flows, account self-service, likes, comments and moderation, settings, public read models), plus a sweep proving readers are refused by every dashboard action                                                                                                                         |
-| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, a reader's whole journey (sign-up with the bot check and breach check → confirm email → account → reset password → delete), liking a post (signed-out prompt → sign in → like → Liked stories), commenting (sign in → held → approved → reply → edit → delete), public pages, headers |
+| Layer       | Tool       | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | Vitest     | Permissions, publishing rules, sanitizer, editor round-trip, helpers                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Integration | Vitest     | Server actions and queries against real Postgres (posts, tags, media uploads, users, invites, sign-up rules, email flows, account self-service, likes, comments, moderation and bans, notifications, weekly stats, settings, public read models), plus a sweep proving readers are refused by every dashboard action                                                                                                                                                                                 |
+| End-to-end  | Playwright | Sign-in, writing and publishing a post, media upload, invite → sign-up → removal, reader sign-up → 403 → promotion, a reader's whole journey (sign-up with the bot check and breach check → confirm email → account → reset password → delete), liking a post (signed-out prompt → sign in → like → Liked stories), commenting (sign in → held → approved → reply → edit → delete), moderation (blocked word → report → spam + ban → unban), a reply email's unsubscribe link, public pages, headers |
 
 Integration and e2e tests create their own `int-*` / `e2e-*` data and remove it afterwards, so
 they can run against a development database.
@@ -181,15 +186,16 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
 2. **Media** — set up an R2 bucket (below) and add your production origin to its CORS policy.
 3. **Vercel project** — import the repo and set these environment variables:
 
-   | Variable                                                                                  | Value                                                                                                    |
-   | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-   | `DATABASE_URL`                                                                            | Neon `main` pooled connection string                                                                     |
-   | `BETTER_AUTH_SECRET`                                                                      | New random value: `openssl rand -base64 32`                                                              |
-   | `NEXT_PUBLIC_APP_URL`                                                                     | Your canonical URL exactly as served, e.g. `https://www.astral-vega.com` (defaults to the Vercel domain) |
-   | `STORAGE_DRIVER`                                                                          | `r2`                                                                                                     |
-   | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | From Cloudflare                                                                                          |
-   | `EMAIL_DRIVER`, `RESEND_API_KEY`, `EMAIL_FROM`                                            | `resend`, your Resend API key, and a sender on your verified domain ([Email](#email))                    |
-   | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`                                  | Optional: a Cloudflare Turnstile widget for your domain                                                  |
+   | Variable                                                                                  | Value                                                                                                     |
+   | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+   | `DATABASE_URL`                                                                            | Neon `main` pooled connection string                                                                      |
+   | `BETTER_AUTH_SECRET`                                                                      | New random value: `openssl rand -base64 32`                                                               |
+   | `NEXT_PUBLIC_APP_URL`                                                                     | Your canonical URL exactly as served, e.g. `https://www.astral-vega.com` (defaults to the Vercel domain)  |
+   | `STORAGE_DRIVER`                                                                          | `r2`                                                                                                      |
+   | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | From Cloudflare                                                                                           |
+   | `EMAIL_DRIVER`, `RESEND_API_KEY`, `EMAIL_FROM`                                            | `resend`, your Resend API key, and a sender on your verified domain ([Email](#email))                     |
+   | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`                                  | Optional: a Cloudflare Turnstile widget for your domain                                                   |
+   | `CRON_SECRET`                                                                             | Optional: a random value (16+ characters) to turn on the moderators' daily digest ([Comments](#comments)) |
 
    Preview deployments work without extra configuration (auth trusts the deployment URL); point
    their `DATABASE_URL` at a non-production branch.
@@ -255,6 +261,33 @@ builds, runs e2e tests against `next start`, and deletes the branch. To enable i
   `GET /api/posts/[id]/comments` in the browser.
 - **Account → Comments** lists your comments with their status. Deleting your account keeps your
   comments, credited to "Deleted reader".
+
+**Moderation tools**
+
+- **Held for review:** reader comments containing a **blocked word** (whole words, any case)
+  or with too many links (3 or more by default) wait in Pending, even from readers you've
+  approved before, and so do edits that add them. The queue shows why each comment waits.
+- **Reports:** a confirmed reader can report someone else's published comment (spam, abuse,
+  or something else). It goes back to Pending, hidden from the post until a moderator keeps or
+  removes it; each reader can report a comment once, and the team's comments can't be reported.
+  A hidden comment with published replies shows as "This comment is hidden."
+- **Bulk actions:** select comments to approve, mark as spam, or delete them together, and
+  empty the Spam tab in one go.
+- **Bans** (editors and admins; readers only): **Users → Readers → Ban** signs the reader out
+  and blocks sign-in and commenting until you unban them. Their comments waiting for review go
+  to spam, and optionally their published ones too. **Spam + ban** in the queue does all of it
+  from one comment.
+
+**Notifications**
+
+- Emails for a reply to your comment, a new comment on a post you wrote (team only), and a
+  daily summary of the Pending queue for editors and admins. Each is sent once per comment,
+  only to confirmed addresses, capped at 20 an hour per person.
+- Everyone switches them on or off in **Account → Email notifications**, and every email has a
+  one-click unsubscribe link (and a `List-Unsubscribe` header) that works without signing in.
+- The digest is a [Vercel Cron job](vercel.json) calling `/api/cron/comment-digest` daily at
+  14:00 UTC; set `CRON_SECRET` in Vercel to turn it on (the route refuses every call without
+  it).
 
 ### Content
 

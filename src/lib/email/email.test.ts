@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { fromHeader, isDeliverableAddress } from "./recipients";
 import {
+  commentReplyMessage,
   escapeHtml,
+  excerpt,
   inviteMessage,
+  moderationDigestMessage,
   resetPasswordMessage,
   verifyEmailMessage,
   withArticle,
@@ -82,5 +85,48 @@ describe("recipients", () => {
       '"EvilBcc: x" <a@b.co>',
     );
     expect(fromHeader("", "a@b.co")).toBe("a@b.co");
+  });
+});
+
+describe("notification emails", () => {
+  const unsubscribeUrl = "https://www.example.org/unsubscribe?token=a.b";
+
+  it("quote the comment safely and offer a way out", () => {
+    const mail = commentReplyMessage({
+      siteName: "Site",
+      name: "Sam",
+      replierName: "Alex <img src=x>",
+      postTitle: "On notebooks",
+      reply: "Line one\n<script>x</script>",
+      url: "https://www.example.org/posts/on-notebooks#comment-1",
+      unsubscribeUrl,
+    });
+    expect(mail.subject).toBe(
+      "Alex <img src=x> replied to your comment on “On notebooks”",
+    );
+    expect(mail.html).not.toContain("<script>");
+    expect(mail.html).not.toContain("<img src=x>");
+    expect(mail.html).toContain("Line one\n&lt;script&gt;x&lt;/script&gt;");
+    expect(mail.html).toContain(`href="${escapeHtml(unsubscribeUrl)}"`);
+    expect(mail.text).toContain("> Line one\n> <script>x</script>");
+    expect(mail.text).toContain(`Unsubscribe: ${unsubscribeUrl}`);
+  });
+
+  it("summarize the moderation queue", () => {
+    const mail = moderationDigestMessage({
+      siteName: "Site",
+      name: "Jo",
+      pending: 1,
+      items: ["Sam on “Post”: Hello"],
+      url: "https://www.example.org/admin/comments",
+      unsubscribeUrl,
+    });
+    expect(mail.subject).toBe("1 comment is waiting for review on Site");
+    expect(mail.text).toContain("• Sam on “Post”: Hello");
+  });
+
+  it("shorten long text at a word", () => {
+    expect(excerpt("short", 10)).toBe("short");
+    expect(excerpt("one two three four five", 12)).toBe("one two…");
   });
 });

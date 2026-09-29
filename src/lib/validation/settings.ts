@@ -42,6 +42,16 @@ export const commentSettingsSchema = z.object({
   enabled: z.boolean(),
   /** Which new reader comments wait for a moderator. */
   moderation: z.enum(COMMENT_MODERATION),
+  /** Reader comments containing any of these wait for a moderator. */
+  blockedWords: z
+    .array(z.string().trim().min(1).max(100))
+    .max(500, "Up to 500 words")
+    // One entry per word, whatever the case.
+    .transform((words) => [
+      ...new Map(words.map((w) => [w.toLowerCase(), w])).values(),
+    ]),
+  /** Reader comments with this many links or more wait (0 turns it off). */
+  linkLimit: z.number().int().min(0).max(20),
 });
 
 export type CommentSettings = z.infer<typeof commentSettingsSchema>;

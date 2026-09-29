@@ -4,12 +4,18 @@ import { redirect } from "next/navigation";
 import { DeleteAccountCard } from "@/components/account/delete-account-card";
 import { EmailCard } from "@/components/account/email-card";
 import { NameCard } from "@/components/account/name-card";
+import { NotificationsCard } from "@/components/account/notifications-card";
 import { PasswordCard } from "@/components/account/password-card";
 import { SessionsCard } from "@/components/account/sessions-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { isStaff } from "@/lib/auth/permissions";
+import { can, isStaff } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/session";
-import { countOtherSessions, getSignInMethods } from "@/lib/queries/account";
+import type { NotificationKind } from "@/lib/notifications/kinds";
+import {
+  countOtherSessions,
+  getNotificationSettings,
+  getSignInMethods,
+} from "@/lib/queries/account";
 
 /** Where email-change links land (see `emailChangeUrl`). */
 function EmailChangeNotice({
@@ -61,11 +67,17 @@ export default async function AccountPage({
   if (!session) redirect(`/login?next=${encodeURIComponent("/account")}`);
   const { user, session: current } = session;
   const params = await searchParams;
-  const [methods, otherSessions] = await Promise.all([
+  const [methods, otherSessions, notifications] = await Promise.all([
     getSignInMethods(user.id),
     countOtherSessions(user.id, current.id),
+    getNotificationSettings(user.id),
   ]);
   const staff = isStaff(user.role);
+  const notificationKinds: NotificationKind[] = [
+    "replies",
+    ...(staff ? (["post-comments"] as const) : []),
+    ...(can(user.role, "comment:moderate") ? (["digest"] as const) : []),
+  ];
 
   return (
     <>
@@ -88,6 +100,11 @@ export default async function AccountPage({
       <PasswordCard
         hasPassword={methods.hasPassword}
         providers={methods.providers}
+      />
+      <NotificationsCard
+        kinds={notificationKinds}
+        initial={notifications}
+        verified={user.emailVerified}
       />
       <SessionsCard otherSessions={otherSessions} />
       <DeleteAccountCard hasPassword={methods.hasPassword} staff={staff} />

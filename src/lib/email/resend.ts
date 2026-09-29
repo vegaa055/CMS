@@ -20,6 +20,7 @@ export async function sendWithResend(
       subject: message.subject,
       html: message.html,
       text: message.text,
+      ...(message.headers && { headers: message.headers }),
       tags: [{ name: "category", value: message.tag }],
     }),
   });

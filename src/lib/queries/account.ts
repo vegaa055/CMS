@@ -3,7 +3,7 @@ import "server-only";
 import { and, count, eq, gt, ne } from "drizzle-orm";
 
 import { db } from "@/db";
-import { account, session } from "@/db/schema";
+import { account, session, user } from "@/db/schema";
 
 /** How someone signs in: a password, and/or linked providers (GitHub). */
 export async function getSignInMethods(userId: string) {
@@ -32,4 +32,17 @@ export async function countOtherSessions(userId: string, currentId: string) {
       ),
     );
   return row?.value ?? 0;
+}
+
+/** Which notification emails someone gets. */
+export async function getNotificationSettings(userId: string) {
+  const [row] = await db
+    .select({
+      replies: user.notifyReplies,
+      "post-comments": user.notifyPostComments,
+      digest: user.notifyDigest,
+    })
+    .from(user)
+    .where(eq(user.id, userId));
+  return row ?? { replies: true, "post-comments": true, digest: true };
 }

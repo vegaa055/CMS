@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 
 import { account, invitation, session, user } from "./auth";
 import { media, posts, postTags, tags } from "./content";
-import { comments, postLikes } from "./engagement";
+import { commentReports, comments, postLikes } from "./engagement";
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
@@ -69,4 +69,16 @@ export const commentRelations = relations(comments, ({ one, many }) => ({
     relationName: "replies",
   }),
   replies: many(comments, { relationName: "replies" }),
+  reports: many(commentReports),
+}));
+
+export const commentReportRelations = relations(commentReports, ({ one }) => ({
+  comment: one(comments, {
+    fields: [commentReports.commentId],
+    references: [comments.id],
+  }),
+  reporter: one(user, {
+    fields: [commentReports.reporterId],
+    references: [user.id],
+  }),
 }));

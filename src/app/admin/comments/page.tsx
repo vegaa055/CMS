@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { ModerationQueue } from "@/components/admin/comments/moderation-queue";
+import {
+  EmptySpamButton,
+  ModerationQueue,
+} from "@/components/admin/comments/moderation-queue";
 import { EmptyState } from "@/components/admin/empty-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { parsePage } from "@/components/site/pagination";
@@ -77,7 +80,11 @@ export default async function CommentsPage({
       <PageHeader
         title="Comments"
         description="Approve comments that wait for review, and remove spam. Only approved comments appear on posts."
-      />
+      >
+        {tab.status === "spam" && counts.spam > 0 && (
+          <EmptySpamButton count={counts.spam} />
+        )}
+      </PageHeader>
       {!settings.enabled && (
         <p className="bg-muted text-muted-foreground rounded-lg px-4 py-3 text-sm">
           Comments are off, so no one can add new ones.{" "}
@@ -123,7 +130,13 @@ export default async function CommentsPage({
           description={empty.description}
         />
       ) : (
-        <ModerationQueue comments={queue.rows} />
+        <ModerationQueue
+          // A fresh selection on each tab and page.
+          key={`${tab.status}-${page}`}
+          comments={queue.rows}
+          status={tab.status}
+          canBan={can(user.role, "reader:ban")}
+        />
       )}
 
       {queue.pageCount > 1 && (
