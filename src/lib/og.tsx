@@ -25,7 +25,7 @@ const colors = {
 let fontData: Promise<[Buffer, Buffer]> | undefined;
 function loadFonts() {
   fontData ??= Promise.all([
-    readFile(join(process.cwd(), "assets/fonts/InstrumentSerif-Regular.woff")),
+    readFile(join(process.cwd(), "assets/fonts/Blinker-Regular.ttf")),
     readFile(join(process.cwd(), "assets/fonts/Geist-Regular.ttf")),
   ]);
   return fontData;
@@ -48,7 +48,7 @@ export async function renderOgImage({
   eyebrow?: string;
   footer?: string;
 }) {
-  const [[serif, sans], site] = await Promise.all([
+  const [[display, sans], site] = await Promise.all([
     loadFonts(),
     getSiteSettings(),
   ]);
@@ -78,7 +78,7 @@ export async function renderOgImage({
       >
         <span
           style={{
-            fontFamily: "Instrument Serif",
+            fontFamily: "Blinker",
             fontSize: 44,
             color: colors.foreground,
           }}
@@ -103,7 +103,7 @@ export async function renderOgImage({
       <div
         style={{
           display: "flex",
-          fontFamily: "Instrument Serif",
+          fontFamily: "Blinker",
           fontSize: titleSize(title),
           lineHeight: 1.05,
           letterSpacing: "-0.02em",
@@ -133,7 +133,7 @@ export async function renderOgImage({
       ...ogSize,
       fonts: [
         { name: "Geist", data: sans, style: "normal", weight: 400 },
-        { name: "Instrument Serif", data: serif, style: "normal", weight: 400 },
+        { name: "Blinker", data: display, style: "normal", weight: 400 },
       ],
     },
   );
